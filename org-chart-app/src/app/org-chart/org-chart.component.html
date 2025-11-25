@@ -1,0 +1,65 @@
+<div class="org-chart-container">
+  <div class="toolbar">
+    <div class="toolbar-group">
+      <button class="btn btn-primary" (click)="expandAll()" title="Expand All">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+        Expand All
+      </button>
+      <button class="btn btn-primary" (click)="collapseAll()" title="Collapse All">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="18 15 12 9 6 15"></polyline>
+        </svg>
+        Collapse All
+      </button>
+    </div>
+
+    <div class="toolbar-group">
+      <button class="btn btn-secondary" (click)="zoomIn()" title="Zoom In">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"></circle>
+          <path d="m21 21-4.35-4.35"></path>
+          <line x1="11" y1="8" x2="11" y2="14"></line>
+          <line x1="8" y1="11" x2="14" y2="11"></line>
+        </svg>
+        Zoom In
+      </button>
+      <button class="btn btn-secondary" (click)="zoomOut()" title="Zoom Out">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"></circle>
+          <path d="m21 21-4.35-4.35"></path>
+          <line x1="8" y1="11" x2="14" y2="11"></line>
+        </svg>
+        Zoom Out
+      </button>
+      <button class="btn btn-secondary" (click)="resetZoom()" title="Reset Zoom">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"></circle>
+          <path d="M12 6v6l4 2"></path>
+        </svg>
+        Reset
+      </button>
+      <button class="btn btn-secondary" (click)="fitToScreen()" title="Fit to Screen">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
+        </svg>
+        Fit to Screen
+      </button>
+    </div>
+  </div>
+
+  <div class="chart-wrapper">
+    <div #chart class="chart"></div>
+  </div>
+
+  <div class="instructions">
+    <p><strong>Instructions:</strong></p>
+    <ul>
+      <li>Click on any node to expand/collapse its children</li>
+      <li>Drag to pan around the chart</li>
+      <li>Use mouse wheel to zoom in/out</li>
+      <li>The blue badge shows the number of children</li>
+    </ul>
+  </div>
+</div>
