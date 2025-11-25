@@ -1,0 +1,9 @@
+[build]
+  base = "org-chart-app"
+  publish = "org-chart-app/dist/org-chart-app"
+  command = "npm run build"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
