@@ -1,6 +1,6 @@
 [build]
   base = "org-chart-app"
-  publish = "org-chart-app/dist/org-chart-app"
+  publish = "dist/org-chart-app"
   command = "npm run build"
 
 [build.environment]
