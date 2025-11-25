@@ -13,6 +13,12 @@
         </svg>
         Collapse All
       </button>
+      <button class="btn btn-primary" (click)="toggleLinkStyle()" title="Toggle Link Style">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+        </svg>
+        {{ linkStyle === 'curved' ? '90° Bend' : 'Curved' }}
+      </button>
     </div>
 
     <div class="toolbar-group">
@@ -57,9 +63,35 @@
     <p><strong>Instructions:</strong></p>
     <ul>
       <li>Click on any node to expand/collapse its children</li>
+      <li>Right-click on any node to add a child</li>
       <li>Drag to pan around the chart</li>
       <li>Use mouse wheel to zoom in/out</li>
       <li>The blue badge shows the number of children</li>
+      <li>Toggle between curved and 90° bend connecting lines</li>
     </ul>
+  </div>
+
+  <!-- Add Node Dialog -->
+  <div class="dialog-overlay" *ngIf="showAddNodeDialog" (click)="closeAddNodeDialog()">
+    <div class="dialog" (click)="$event.stopPropagation()">
+      <div class="dialog-header">
+        <h3>Add New Node</h3>
+        <button class="close-btn" (click)="closeAddNodeDialog()">&times;</button>
+      </div>
+      <div class="dialog-body">
+        <div class="form-group">
+          <label>Name:</label>
+          <input type="text" [(ngModel)]="newNodeName" placeholder="Enter name" />
+        </div>
+        <div class="form-group">
+          <label>Title:</label>
+          <input type="text" [(ngModel)]="newNodeTitle" placeholder="Enter title" />
+        </div>
+      </div>
+      <div class="dialog-footer">
+        <button class="btn btn-secondary" (click)="closeAddNodeDialog()">Cancel</button>
+        <button class="btn btn-primary" (click)="addNode()">Add Node</button>
+      </div>
+    </div>
   </div>
 </div>

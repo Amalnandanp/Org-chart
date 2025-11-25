@@ -28,6 +28,11 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
   private duration = 750;
   private nodeWidth = 180;
   private nodeHeight = 80;
+  public linkStyle: 'curved' | 'straight' = 'curved'; // Toggle between curved and 90deg bend
+  public showAddNodeDialog = false;
+  public selectedNode: any = null;
+  public newNodeName = '';
+  public newNodeTitle = '';
 
   // Sample org data - you can replace this with your actual data
   private orgData: OrgNode = {
@@ -225,6 +230,12 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
       this.toggleNode(d);
     });
 
+    // Add right-click event to add child node
+    nodeEnter.on('contextmenu', (event: any, d: any) => {
+      event.preventDefault();
+      this.openAddNodeDialog(d);
+    });
+
     // UPDATE
     const nodeUpdate = nodeEnter.merge(node);
 
@@ -307,10 +318,19 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
   }
 
   private diagonal(s: any, d: any): string {
-    return `M ${s.x} ${s.y}
-            C ${s.x} ${(s.y + d.y) / 2},
-              ${d.x} ${(s.y + d.y) / 2},
-              ${d.x} ${d.y}`;
+    if (this.linkStyle === 'straight') {
+      // 90-degree bend (right angle)
+      return `M ${s.x} ${s.y}
+              V ${(s.y + d.y) / 2}
+              H ${d.x}
+              V ${d.y}`;
+    } else {
+      // Curved path (default)
+      return `M ${s.x} ${s.y}
+              C ${s.x} ${(s.y + d.y) / 2},
+                ${d.x} ${(s.y + d.y) / 2},
+                ${d.x} ${d.y}`;
+    }
   }
 
   private toggleNode(d: any): void {
@@ -400,5 +420,66 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
   public updateOrgData(newData: OrgNode): void {
     this.orgData = newData;
     this.createChart();
+  }
+
+  // Toggle link style between curved and 90-degree bend
+  public toggleLinkStyle(): void {
+    this.linkStyle = this.linkStyle === 'curved' ? 'straight' : 'curved';
+    this.update(this.root);
+  }
+
+  // Open dialog to add a new node
+  public openAddNodeDialog(node: any): void {
+    this.selectedNode = node;
+    this.newNodeName = '';
+    this.newNodeTitle = '';
+    this.showAddNodeDialog = true;
+  }
+
+  // Close the add node dialog
+  public closeAddNodeDialog(): void {
+    this.showAddNodeDialog = false;
+    this.selectedNode = null;
+    this.newNodeName = '';
+    this.newNodeTitle = '';
+  }
+
+  // Add a new child node to the selected node
+  public addNode(): void {
+    if (!this.newNodeName || !this.newNodeTitle) {
+      return;
+    }
+
+    const newNode: OrgNode = {
+      id: Date.now().toString(),
+      name: this.newNodeName,
+      title: this.newNodeTitle
+    };
+
+    // Add to data structure
+    if (!this.selectedNode.data.children) {
+      this.selectedNode.data.children = [];
+    }
+    this.selectedNode.data.children.push(newNode);
+
+    // Update the hierarchy
+    if (this.selectedNode.children) {
+      this.selectedNode.children.push(d3.hierarchy(newNode));
+    } else if (this.selectedNode._children) {
+      this.selectedNode._children.push(d3.hierarchy(newNode));
+    } else {
+      this.selectedNode.children = [d3.hierarchy(newNode)];
+    }
+
+    // Re-initialize the tree
+    this.root = d3.hierarchy(this.orgData);
+    this.root.descendants().forEach((d: any) => {
+      if (d._children) {
+        d.children = d._children;
+      }
+    });
+
+    this.update(this.root);
+    this.closeAddNodeDialog();
   }
 }
