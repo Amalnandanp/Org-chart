@@ -8,6 +8,12 @@ export interface OrgNode {
   children?: OrgNode[];
   _children?: OrgNode[];
   collapsed?: boolean;
+  // Custom fields for card template
+  avatar?: string;
+  email?: string;
+  phone?: string;
+  department?: string;
+  customData?: any;
 }
 
 @Component({
@@ -29,6 +35,7 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
   private nodeWidth = 180;
   private nodeHeight = 80;
   public linkStyle: 'curved' | 'straight' = 'curved'; // Toggle between curved and 90deg bend
+  public useCustomCard = false; // Toggle between default and custom card
   public showAddNodeDialog = false;
   public selectedNode: any = null;
   public newNodeName = '';
@@ -39,29 +46,43 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
     id: '1',
     name: 'John Doe',
     title: 'CEO',
+    avatar: 'https://i.pravatar.cc/150?img=12',
+    email: 'john.doe@company.com',
+    phone: '+1 234 567 8900',
+    department: 'Executive',
     children: [
       {
         id: '2',
         name: 'Jane Smith',
         title: 'CTO',
+        avatar: 'https://i.pravatar.cc/150?img=5',
+        email: 'jane.smith@company.com',
+        phone: '+1 234 567 8901',
+        department: 'Technology',
         children: [
           {
             id: '4',
             name: 'Bob Wilson',
             title: 'Engineering Manager',
+            avatar: 'https://i.pravatar.cc/150?img=13',
+            email: 'bob.wilson@company.com',
+            department: 'Engineering',
             children: [
-              { id: '7', name: 'Alice Brown', title: 'Senior Developer' },
-              { id: '8', name: 'Charlie Davis', title: 'Developer' },
-              { id: '9', name: 'Diana Evans', title: 'Junior Developer' }
+              { id: '7', name: 'Alice Brown', title: 'Senior Developer', avatar: 'https://i.pravatar.cc/150?img=1', department: 'Engineering' },
+              { id: '8', name: 'Charlie Davis', title: 'Developer', avatar: 'https://i.pravatar.cc/150?img=8', department: 'Engineering' },
+              { id: '9', name: 'Diana Evans', title: 'Junior Developer', avatar: 'https://i.pravatar.cc/150?img=9', department: 'Engineering' }
             ]
           },
           {
             id: '5',
             name: 'Emma Johnson',
             title: 'QA Manager',
+            avatar: 'https://i.pravatar.cc/150?img=10',
+            email: 'emma.johnson@company.com',
+            department: 'Quality Assurance',
             children: [
-              { id: '10', name: 'Frank Green', title: 'QA Engineer' },
-              { id: '11', name: 'Grace Harris', title: 'QA Engineer' }
+              { id: '10', name: 'Frank Green', title: 'QA Engineer', avatar: 'https://i.pravatar.cc/150?img=11', department: 'Quality Assurance' },
+              { id: '11', name: 'Grace Harris', title: 'QA Engineer', avatar: 'https://i.pravatar.cc/150?img=3', department: 'Quality Assurance' }
             ]
           }
         ]
@@ -70,14 +91,21 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
         id: '3',
         name: 'Mike Taylor',
         title: 'CFO',
+        avatar: 'https://i.pravatar.cc/150?img=14',
+        email: 'mike.taylor@company.com',
+        phone: '+1 234 567 8902',
+        department: 'Finance',
         children: [
           {
             id: '6',
             name: 'Sarah Miller',
             title: 'Accounting Manager',
+            avatar: 'https://i.pravatar.cc/150?img=4',
+            email: 'sarah.miller@company.com',
+            department: 'Accounting',
             children: [
-              { id: '12', name: 'Henry Clark', title: 'Accountant' },
-              { id: '13', name: 'Ivy Lewis', title: 'Accountant' }
+              { id: '12', name: 'Henry Clark', title: 'Accountant', avatar: 'https://i.pravatar.cc/150?img=15', department: 'Accounting' },
+              { id: '13', name: 'Ivy Lewis', title: 'Accountant', avatar: 'https://i.pravatar.cc/150?img=2', department: 'Accounting' }
             ]
           }
         ]
@@ -161,69 +189,12 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
       .attr('transform', () => `translate(${source.x0},${source.y0})`)
       .style('cursor', 'pointer');
 
-    // Add rectangle for the node
-    nodeEnter.append('rect')
-      .attr('width', this.nodeWidth)
-      .attr('height', this.nodeHeight)
-      .attr('x', -this.nodeWidth / 2)
-      .attr('y', -this.nodeHeight / 2)
-      .attr('rx', 5)
-      .attr('ry', 5)
-      .style('fill', '#fff')
-      .style('stroke', '#4a90e2')
-      .style('stroke-width', '2px')
-      .style('filter', 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))');
-
-    // Add name text
-    nodeEnter.append('text')
-      .attr('dy', '-0.5em')
-      .attr('text-anchor', 'middle')
-      .style('font-size', '14px')
-      .style('font-weight', 'bold')
-      .style('fill', '#333')
-      .text((d: any) => d.data.name);
-
-    // Add title text
-    nodeEnter.append('text')
-      .attr('dy', '1em')
-      .attr('text-anchor', 'middle')
-      .style('font-size', '12px')
-      .style('fill', '#666')
-      .text((d: any) => d.data.title);
-
-    // Add children count badge
-    nodeEnter.append('circle')
-      .attr('class', 'children-count')
-      .attr('cx', this.nodeWidth / 2 - 15)
-      .attr('cy', -this.nodeHeight / 2 + 15)
-      .attr('r', 15)
-      .style('fill', (d: any) => {
-        const childrenCount = this.getChildrenCount(d);
-        return childrenCount > 0 ? '#4a90e2' : 'none';
-      })
-      .style('stroke', (d: any) => {
-        const childrenCount = this.getChildrenCount(d);
-        return childrenCount > 0 ? '#fff' : 'none';
-      })
-      .style('stroke-width', '2px')
-      .style('display', (d: any) => {
-        const childrenCount = this.getChildrenCount(d);
-        return childrenCount > 0 ? 'block' : 'none';
-      });
-
-    nodeEnter.append('text')
-      .attr('class', 'children-count-text')
-      .attr('x', this.nodeWidth / 2 - 15)
-      .attr('y', -this.nodeHeight / 2 + 20)
-      .attr('text-anchor', 'middle')
-      .style('font-size', '12px')
-      .style('font-weight', 'bold')
-      .style('fill', '#fff')
-      .style('pointer-events', 'none')
-      .text((d: any) => {
-        const childrenCount = this.getChildrenCount(d);
-        return childrenCount > 0 ? childrenCount : '';
-      });
+    // Render card based on custom/default mode
+    if (this.useCustomCard) {
+      this.renderCustomCard(nodeEnter);
+    } else {
+      this.renderDefaultCard(nodeEnter);
+    }
 
     // Add click event to toggle children
     nodeEnter.on('click', (_event: any, d: any) => {
@@ -353,6 +324,111 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
     return 0;
   }
 
+  // Render default simple card
+  private renderDefaultCard(nodeEnter: any): void {
+    // Add rectangle for the node
+    nodeEnter.append('rect')
+      .attr('width', this.nodeWidth)
+      .attr('height', this.nodeHeight)
+      .attr('x', -this.nodeWidth / 2)
+      .attr('y', -this.nodeHeight / 2)
+      .attr('rx', 5)
+      .attr('ry', 5)
+      .style('fill', '#fff')
+      .style('stroke', '#4a90e2')
+      .style('stroke-width', '2px')
+      .style('filter', 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))');
+
+    // Add name text
+    nodeEnter.append('text')
+      .attr('dy', '-0.5em')
+      .attr('text-anchor', 'middle')
+      .style('font-size', '14px')
+      .style('font-weight', 'bold')
+      .style('fill', '#333')
+      .text((d: any) => d.data.name);
+
+    // Add title text
+    nodeEnter.append('text')
+      .attr('dy', '1em')
+      .attr('text-anchor', 'middle')
+      .style('font-size', '12px')
+      .style('fill', '#666')
+      .text((d: any) => d.data.title);
+
+    // Add children count badge
+    nodeEnter.append('circle')
+      .attr('class', 'children-count')
+      .attr('cx', this.nodeWidth / 2 - 15)
+      .attr('cy', -this.nodeHeight / 2 + 15)
+      .attr('r', 15)
+      .style('fill', (d: any) => {
+        const childrenCount = this.getChildrenCount(d);
+        return childrenCount > 0 ? '#4a90e2' : 'none';
+      })
+      .style('stroke', (d: any) => {
+        const childrenCount = this.getChildrenCount(d);
+        return childrenCount > 0 ? '#fff' : 'none';
+      })
+      .style('stroke-width', '2px')
+      .style('display', (d: any) => {
+        const childrenCount = this.getChildrenCount(d);
+        return childrenCount > 0 ? 'block' : 'none';
+      });
+
+    nodeEnter.append('text')
+      .attr('class', 'children-count-text')
+      .attr('x', this.nodeWidth / 2 - 15)
+      .attr('y', -this.nodeHeight / 2 + 20)
+      .attr('text-anchor', 'middle')
+      .style('font-size', '12px')
+      .style('font-weight', 'bold')
+      .style('fill', '#fff')
+      .style('pointer-events', 'none')
+      .text((d: any) => {
+        const childrenCount = this.getChildrenCount(d);
+        return childrenCount > 0 ? childrenCount : '';
+      });
+  }
+
+  // Render custom HTML card with avatar, email, phone, etc.
+  private renderCustomCard(nodeEnter: any): void {
+    const cardWidth = 220;
+    const cardHeight = 120;
+
+    // Card container
+    const card = nodeEnter.append('foreignObject')
+      .attr('width', cardWidth)
+      .attr('height', cardHeight)
+      .attr('x', -cardWidth / 2)
+      .attr('y', -cardHeight / 2);
+
+    // HTML content using foreignObject
+    card.append('xhtml:div')
+      .attr('class', 'custom-card')
+      .html((d: any) => {
+        const data = d.data;
+        const childrenCount = this.getChildrenCount(d);
+        return `
+          <div class="card-content">
+            <div class="card-header">
+              ${data.avatar ? `<img src="${data.avatar}" class="avatar" alt="${data.name}" />` : '<div class="avatar-placeholder"></div>'}
+              <div class="card-info">
+                <div class="card-name">${data.name}</div>
+                <div class="card-title">${data.title}</div>
+              </div>
+            </div>
+            ${data.department ? `<div class="card-department"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg> ${data.department}</div>` : ''}
+            <div class="card-contact">
+              ${data.email ? `<div class="card-email"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg> ${data.email}</div>` : ''}
+              ${data.phone ? `<div class="card-phone"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg> ${data.phone}</div>` : ''}
+            </div>
+            ${childrenCount > 0 ? `<div class="card-badge">${childrenCount}</div>` : ''}
+          </div>
+        `;
+      });
+  }
+
   // Public methods for toolbar actions
   public expandAll(): void {
     this.root.descendants().forEach((d: any) => {
@@ -426,6 +502,12 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
   public toggleLinkStyle(): void {
     this.linkStyle = this.linkStyle === 'curved' ? 'straight' : 'curved';
     this.update(this.root);
+  }
+
+  // Toggle between default and custom card
+  public toggleCardStyle(): void {
+    this.useCustomCard = !this.useCustomCard;
+    this.createChart(); // Recreate chart with new card style
   }
 
   // Open dialog to add a new node
