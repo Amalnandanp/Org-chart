@@ -30,7 +30,7 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
   private root: any;
   private zoom: any;
   private width = 1200;
-  private height = 800;
+  private height = 1000;
   private duration = 750;
   private nodeWidth = 180;
   private nodeHeight = 80;
@@ -148,8 +148,9 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
       .attr('transform', `translate(${this.width / 2}, 50)`);
 
     // Create tree layout
+    const nodeSize: [number, number] = this.useCustomCard ? [280, 200] : [this.nodeWidth + 50, this.nodeHeight + 80];
     this.tree = d3.tree()
-      .nodeSize([this.nodeWidth + 50, this.nodeHeight + 80])
+      .nodeSize(nodeSize)
       .separation((a: any, b: any) => {
         return a.parent === b.parent ? 1 : 1.2;
       });
@@ -394,14 +395,15 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
   // Render custom HTML card with avatar, email, phone, etc.
   private renderCustomCard(nodeEnter: any): void {
     const cardWidth = 220;
-    const cardHeight = 120;
+    const cardHeight = 140;
 
     // Card container
     const card = nodeEnter.append('foreignObject')
       .attr('width', cardWidth)
       .attr('height', cardHeight)
       .attr('x', -cardWidth / 2)
-      .attr('y', -cardHeight / 2);
+      .attr('y', -cardHeight / 2)
+      .style('overflow', 'visible');
 
     // HTML content using foreignObject
     card.append('xhtml:div')
@@ -475,15 +477,18 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
     const bounds = this.g.node().getBBox();
     const parent = this.svg.node().parentElement;
     const fullWidth = parent.clientWidth;
-    const fullHeight = this.height;
-    const width = bounds.width;
-    const height = bounds.height;
-    const midX = bounds.x + width / 2;
-    const midY = bounds.y + height / 2;
+    const fullHeight = parent.clientHeight;
+
+    // Add padding to prevent cropping (increased for custom cards)
+    const padding = this.useCustomCard ? 80 : 60;
+    const width = bounds.width + (padding * 2);
+    const height = bounds.height + (padding * 2);
+    const midX = bounds.x + bounds.width / 2;
+    const midY = bounds.y + bounds.height / 2;
 
     if (width === 0 || height === 0) return;
 
-    const scale = 0.85 / Math.max(width / fullWidth, height / fullHeight);
+    const scale = 0.9 / Math.max(width / fullWidth, height / fullHeight);
     const translate = [fullWidth / 2 - scale * midX, fullHeight / 2 - scale * midY];
 
     this.svg.transition().duration(750).call(
