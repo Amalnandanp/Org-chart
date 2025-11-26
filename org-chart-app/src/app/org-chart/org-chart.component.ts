@@ -5,6 +5,7 @@ export interface OrgNode {
   id: string;
   name: string;
   title: string;
+  employeeCode?: string;
   children?: OrgNode[];
   _children?: OrgNode[];
   collapsed?: boolean;
@@ -36,6 +37,8 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
   private nodeHeight = 80;
   public linkStyle: 'curved' | 'straight' = 'curved'; // Toggle between curved and 90deg bend
   public useCustomCard = false; // Toggle between default and custom card
+  public searchKeyword = ''; // Search keyword
+  public showNoResults = false; // Show no results message
   public showAddNodeDialog = false;
   public selectedNode: any = null;
   public newNodeName = '';
@@ -46,6 +49,7 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
     id: '1',
     name: 'John Doe',
     title: 'CEO',
+    employeeCode: 'EMP001',
     avatar: 'https://i.pravatar.cc/150?img=12',
     email: 'john.doe@company.com',
     phone: '+1 234 567 8900',
@@ -55,6 +59,7 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
         id: '2',
         name: 'Jane Smith',
         title: 'CTO',
+        employeeCode: 'EMP002',
         avatar: 'https://i.pravatar.cc/150?img=5',
         email: 'jane.smith@company.com',
         phone: '+1 234 567 8901',
@@ -64,25 +69,27 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
             id: '4',
             name: 'Bob Wilson',
             title: 'Engineering Manager',
+            employeeCode: 'EMP004',
             avatar: 'https://i.pravatar.cc/150?img=13',
             email: 'bob.wilson@company.com',
             department: 'Engineering',
             children: [
-              { id: '7', name: 'Alice Brown', title: 'Senior Developer', avatar: 'https://i.pravatar.cc/150?img=1', department: 'Engineering' },
-              { id: '8', name: 'Charlie Davis', title: 'Developer', avatar: 'https://i.pravatar.cc/150?img=8', department: 'Engineering' },
-              { id: '9', name: 'Diana Evans', title: 'Junior Developer', avatar: 'https://i.pravatar.cc/150?img=9', department: 'Engineering' }
+              { id: '7', name: 'Alice Brown', title: 'Senior Developer', employeeCode: 'EMP007', avatar: 'https://i.pravatar.cc/150?img=1', department: 'Engineering' },
+              { id: '8', name: 'Charlie Davis', title: 'Developer', employeeCode: 'EMP008', avatar: 'https://i.pravatar.cc/150?img=8', department: 'Engineering' },
+              { id: '9', name: 'Diana Evans', title: 'Junior Developer', employeeCode: 'EMP009', avatar: 'https://i.pravatar.cc/150?img=9', department: 'Engineering' }
             ]
           },
           {
             id: '5',
             name: 'Emma Johnson',
             title: 'QA Manager',
+            employeeCode: 'EMP005',
             avatar: 'https://i.pravatar.cc/150?img=10',
             email: 'emma.johnson@company.com',
             department: 'Quality Assurance',
             children: [
-              { id: '10', name: 'Frank Green', title: 'QA Engineer', avatar: 'https://i.pravatar.cc/150?img=11', department: 'Quality Assurance' },
-              { id: '11', name: 'Grace Harris', title: 'QA Engineer', avatar: 'https://i.pravatar.cc/150?img=3', department: 'Quality Assurance' }
+              { id: '10', name: 'Frank Green', title: 'QA Engineer', employeeCode: 'EMP010', avatar: 'https://i.pravatar.cc/150?img=11', department: 'Quality Assurance' },
+              { id: '11', name: 'Grace Harris', title: 'QA Engineer', employeeCode: 'EMP011', avatar: 'https://i.pravatar.cc/150?img=3', department: 'Quality Assurance' }
             ]
           }
         ]
@@ -91,6 +98,7 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
         id: '3',
         name: 'Mike Taylor',
         title: 'CFO',
+        employeeCode: 'EMP003',
         avatar: 'https://i.pravatar.cc/150?img=14',
         email: 'mike.taylor@company.com',
         phone: '+1 234 567 8902',
@@ -100,12 +108,13 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
             id: '6',
             name: 'Sarah Miller',
             title: 'Accounting Manager',
+            employeeCode: 'EMP006',
             avatar: 'https://i.pravatar.cc/150?img=4',
             email: 'sarah.miller@company.com',
             department: 'Accounting',
             children: [
-              { id: '12', name: 'Henry Clark', title: 'Accountant', avatar: 'https://i.pravatar.cc/150?img=15', department: 'Accounting' },
-              { id: '13', name: 'Ivy Lewis', title: 'Accountant', avatar: 'https://i.pravatar.cc/150?img=2', department: 'Accounting' }
+              { id: '12', name: 'Henry Clark', title: 'Accountant', employeeCode: 'EMP012', avatar: 'https://i.pravatar.cc/150?img=15', department: 'Accounting' },
+              { id: '13', name: 'Ivy Lewis', title: 'Accountant', employeeCode: 'EMP013', avatar: 'https://i.pravatar.cc/150?img=2', department: 'Accounting' }
             ]
           }
         ]
@@ -119,6 +128,8 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
 
   ngAfterViewInit(): void {
     this.createChart();
+    // Fit to screen after initial render
+    setTimeout(() => this.fitToScreen(), 100);
   }
 
   private createChart(): void {
@@ -169,6 +180,11 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
   }
 
   private update(source: any): void {
+    // If showing no results, don't update the chart but still allow the no results message to show
+    if (this.showNoResults) {
+      return;
+    }
+
     const treeData = this.tree(this.root);
     const nodes = treeData.descendants();
     const links = treeData.links();
@@ -214,7 +230,24 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
     // Transition to the proper position for the node
     nodeUpdate.transition()
       .duration(this.duration)
-      .attr('transform', (d: any) => `translate(${d.x},${d.y})`);
+      .attr('transform', (d: any) => `translate(${d.x},${d.y})`)
+      .on('end', () => {
+        // Fit to screen after transition completes
+        if (nodeUpdate.size() === nodes.length) {
+          setTimeout(() => this.fitToScreen(), 50);
+        }
+      });
+
+    // Apply search filter opacity
+    nodeUpdate
+      .style('opacity', (d: any) => {
+        // If no search term, show all nodes with full opacity
+        if (!this.searchKeyword || this.searchKeyword.trim() === '') {
+          return 1;
+        }
+        // Otherwise, apply opacity based on match
+        return this.matchesSearch(d.data) ? 1 : 0.3;
+      });
 
     // Update the node attributes and style
     nodeUpdate.select('rect')
@@ -325,6 +358,207 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
     return 0;
   }
 
+  // Check if node matches search criteria (case insensitive)
+  private matchesSearch(nodeData: OrgNode): boolean {
+    if (!this.searchKeyword || this.searchKeyword.trim() === '') {
+      return true; // No search active, show all
+    }
+
+    const keyword = this.searchKeyword.toLowerCase().trim();
+    const name = (nodeData.name || '').toLowerCase();
+    const employeeCode = (nodeData.employeeCode || '').toLowerCase();
+
+    return name.includes(keyword) || employeeCode.includes(keyword);
+  }
+
+  private searchTimeout: any;
+  private zoomTimeout: any;
+
+  // Search functionality
+  public onSearch(): void {
+    // Cancel any pending view updates from previous searches
+    this.cancelPendingUpdates();
+
+    // Clear any pending search timeout
+    if (this.searchTimeout) {
+      clearTimeout(this.searchTimeout);
+      this.searchTimeout = null;
+    }
+
+    // Check if search is effectively empty
+    const keyword = this.searchKeyword ? this.searchKeyword.trim() : '';
+
+    if (keyword === '') {
+      this.showNoResults = false;
+      this.expandAll(); // Reset to full view
+      // Fit to screen after transition
+      this.zoomTimeout = setTimeout(() => this.fitToScreen(), this.duration + 100);
+      return;
+    }
+
+    // Debounce search
+    this.searchTimeout = setTimeout(() => {
+      this.performSearch();
+      this.searchTimeout = null;
+    }, 150);
+  }
+
+  private cancelPendingUpdates(): void {
+    if (this.zoomTimeout) {
+      clearTimeout(this.zoomTimeout);
+      this.zoomTimeout = null;
+    }
+  }
+
+  private performSearch(): void {
+    const keyword = this.searchKeyword ? this.searchKeyword.trim() : '';
+
+    // Double-check emptiness inside the debounced function
+    if (keyword === '') {
+      this.showNoResults = false;
+      this.expandAll();
+      this.zoomTimeout = setTimeout(() => this.fitToScreen(), this.duration + 100);
+      return;
+    }
+
+    // Find all matching nodes
+    const matchingNodes: any[] = [];
+    const findMatchingNodes = (node: any) => {
+      if (this.matchesSearch(node.data)) {
+        matchingNodes.push(node);
+      }
+      if (node.children) {
+        node.children.forEach(findMatchingNodes);
+      } else if (node._children) {
+        node._children.forEach(findMatchingNodes);
+      }
+    };
+
+    findMatchingNodes(this.root);
+
+    // If no matches, show no results message
+    if (matchingNodes.length === 0) {
+      this.showNoResults = true;
+      this.update(this.root);
+      return;
+    }
+
+    this.showNoResults = false;
+
+    // Expand paths to matching nodes
+    matchingNodes.forEach(node => {
+      // Expand all ancestors
+      let current = node;
+      while (current.parent) {
+        if (current.parent._children) {
+          current.parent.children = current.parent._children;
+          current.parent._children = null;
+        }
+        current = current.parent;
+      }
+    });
+
+    this.update(this.root);
+
+    // After update, scroll all matches into view
+    if (matchingNodes.length > 0) {
+      this.zoomTimeout = setTimeout(() => {
+        this.scrollToMultipleNodesWithPadding(matchingNodes);
+      }, this.duration + 100);
+    }
+  }
+
+  // Clear search
+  public clearSearch(): void {
+    this.cancelPendingUpdates();
+
+    // Clear any pending search timeout
+    if (this.searchTimeout) {
+      clearTimeout(this.searchTimeout);
+      this.searchTimeout = null;
+    }
+
+    this.searchKeyword = '';
+    this.showNoResults = false;
+    this.expandAll(); // Reset to full view
+    // Fit to screen after clearing search
+    this.zoomTimeout = setTimeout(() => this.fitToScreen(), this.duration + 100);
+  }
+
+  // Scroll a specific node into view
+  private scrollToNode(node: any): void {
+    const bounds = this.g.node().getBBox();
+    const parent = this.svg.node().parentElement;
+    const fullWidth = parent.clientWidth;
+    const fullHeight = parent.clientHeight;
+
+    // Node position
+    const nodeX = node.x;
+    const nodeY = node.y;
+
+    // Calculate translate to center the node
+    const translateX = (fullWidth / 2) - nodeX;
+    const translateY = (fullHeight / 2) - nodeY;
+
+    // Apply transform
+    this.svg.transition().duration(500).call(
+      this.zoom.transform,
+      d3.zoomIdentity.translate(translateX, translateY).scale(1)
+    );
+  }
+
+  // Scroll to show multiple nodes in view with padding
+  private scrollToMultipleNodesWithPadding(nodes: any[]): void {
+    if (nodes.length === 0) return;
+
+    const parent = this.svg.node().parentElement;
+    const fullWidth = parent.clientWidth;
+    const fullHeight = parent.clientHeight;
+
+    // Find bounding box of all matching nodes
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+
+    nodes.forEach(node => {
+      minX = Math.min(minX, node.x);
+      minY = Math.min(minY, node.y);
+      maxX = Math.max(maxX, node.x);
+      maxY = Math.max(maxY, node.y);
+    });
+
+    // Add extra padding to ensure nodes aren't cropped, especially top and bottom nodes
+    const padding = this.useCustomCard ? 150 : 120;
+    minX -= padding;
+    minY -= padding;
+    maxX += padding;
+    maxY += padding;
+
+    // Calculate width and height of the bounding box
+    const boxWidth = maxX - minX;
+    const boxHeight = maxY - minY;
+
+    // Calculate scale to fit all nodes in view
+    const scaleX = fullWidth / boxWidth;
+    const scaleY = fullHeight / boxHeight;
+    const scale = Math.min(scaleX, scaleY, 1); // Don't zoom in, only zoom out if needed
+
+    // Calculate center of all nodes
+    const centerX = (minX + maxX) / 2;
+    const centerY = (minY + maxY) / 2;
+
+    // Calculate translate to center the group
+    const translateX = (fullWidth / 2) - (centerX * scale);
+    const translateY = (fullHeight / 2) - (centerY * scale);
+
+    // Apply transform
+    this.svg.transition().duration(500).call(
+      this.zoom.transform,
+      d3.zoomIdentity.translate(translateX, translateY).scale(scale)
+    );
+  }
+
   // Render default simple card
   private renderDefaultCard(nodeEnter: any): void {
     // Add rectangle for the node
@@ -433,13 +667,19 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
 
   // Public methods for toolbar actions
   public expandAll(): void {
-    this.root.descendants().forEach((d: any) => {
+    const expand = (d: any) => {
       if (d._children) {
         d.children = d._children;
         d._children = null;
       }
-    });
+      if (d.children) {
+        d.children.forEach(expand);
+      }
+    };
+
+    expand(this.root);
     this.update(this.root);
+    // Fit to screen will be called automatically after update transition
   }
 
   public collapseAll(): void {
@@ -450,6 +690,7 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
       }
     });
     this.update(this.root);
+    // Fit to screen will be called automatically after update transition
   }
 
   public zoomIn(): void {
@@ -466,12 +707,7 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
     );
   }
 
-  public resetZoom(): void {
-    this.svg.transition().duration(300).call(
-      this.zoom.transform,
-      d3.zoomIdentity.translate(this.width / 2, 50)
-    );
-  }
+
 
   public fitToScreen(): void {
     const bounds = this.g.node().getBBox();
@@ -479,8 +715,8 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
     const fullWidth = parent.clientWidth;
     const fullHeight = parent.clientHeight;
 
-    // Add padding to prevent cropping (increased for custom cards)
-    const padding = this.useCustomCard ? 80 : 60;
+    // Add extra padding to prevent cropping of top and bottom nodes
+    const padding = this.useCustomCard ? 150 : 120;
     const width = bounds.width + (padding * 2);
     const height = bounds.height + (padding * 2);
     const midX = bounds.x + bounds.width / 2;
@@ -488,7 +724,7 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
 
     if (width === 0 || height === 0) return;
 
-    const scale = 0.9 / Math.max(width / fullWidth, height / fullHeight);
+    const scale = 0.85 / Math.max(width / fullWidth, height / fullHeight);
     const translate = [fullWidth / 2 - scale * midX, fullHeight / 2 - scale * midY];
 
     this.svg.transition().duration(750).call(

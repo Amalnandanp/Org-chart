@@ -1,34 +1,39 @@
 <div class="org-chart-container">
   <div class="toolbar">
     <div class="toolbar-group">
+      <div class="search-box">
+        <input type="text" [(ngModel)]="searchKeyword" (ngModelChange)="onSearch()"
+          placeholder="Search by name or employee code..." class="search-input" />
+        <button class="btn btn-icon" (click)="clearSearch()" *ngIf="searchKeyword" title="Clear Search">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+    </div>
+    <div class="toolbar-group">
       <button class="btn btn-primary" (click)="expandAll()" title="Expand All">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <polyline points="6 9 12 15 18 9"></polyline>
-        </svg>
-        Expand All
-      </button>
+        </svg> Expand All </button>
       <button class="btn btn-primary" (click)="collapseAll()" title="Collapse All">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <polyline points="18 15 12 9 6 15"></polyline>
-        </svg>
-        Collapse All
-      </button>
+        </svg> Collapse All </button>
       <button class="btn btn-primary" (click)="toggleLinkStyle()" title="Toggle Link Style">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-        </svg>
-        {{ linkStyle === 'curved' ? '90° Bend' : 'Curved' }}
-      </button>
+          <path
+            d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z">
+          </path>
+        </svg> {{ linkStyle === 'curved' ? '90° Bend' : 'Curved' }} </button>
       <button class="btn btn-primary" (click)="toggleCardStyle()" title="Toggle Card Style">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
           <line x1="8" y1="21" x2="16" y2="21"></line>
           <line x1="12" y1="17" x2="12" y2="21"></line>
-        </svg>
-        {{ useCustomCard ? 'Simple Card' : 'Custom Card' }}
-      </button>
+        </svg> {{ useCustomCard ? 'Simple Card' : 'Custom Card' }} </button>
     </div>
-
     <div class="toolbar-group">
       <button class="btn btn-secondary" (click)="zoomIn()" title="Zoom In">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -36,37 +41,35 @@
           <path d="m21 21-4.35-4.35"></path>
           <line x1="11" y1="8" x2="11" y2="14"></line>
           <line x1="8" y1="11" x2="14" y2="11"></line>
-        </svg>
-        Zoom In
-      </button>
+        </svg> Zoom In </button>
       <button class="btn btn-secondary" (click)="zoomOut()" title="Zoom Out">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="11" cy="11" r="8"></circle>
           <path d="m21 21-4.35-4.35"></path>
           <line x1="8" y1="11" x2="14" y2="11"></line>
-        </svg>
-        Zoom Out
-      </button>
-      <button class="btn btn-secondary" (click)="resetZoom()" title="Reset Zoom">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="10"></circle>
-          <path d="M12 6v6l4 2"></path>
-        </svg>
-        Reset
-      </button>
+        </svg> Zoom Out </button>
       <button class="btn btn-secondary" (click)="fitToScreen()" title="Fit to Screen">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
-        </svg>
-        Fit to Screen
-      </button>
+          <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3">
+          </path>
+        </svg> Fit to Screen </button>
     </div>
   </div>
-
   <div class="chart-wrapper">
     <div #chart class="chart"></div>
+    <!-- No Results Message -->
+    <div class="no-results" *ngIf="showNoResults">
+      <div class="no-results-content">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="1.5">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          <line x1="8" y1="11" x2="14" y2="11"></line>
+        </svg>
+        <h3>No matching employees found</h3>
+        <p>Try adjusting your search criteria</p>
+      </div>
+    </div>
   </div>
-
   <div class="instructions">
     <p><strong>Instructions:</strong></p>
     <ul>
@@ -78,7 +81,6 @@
       <li>Toggle between curved and 90° bend connecting lines</li>
     </ul>
   </div>
-
   <!-- Add Node Dialog -->
   <div class="dialog-overlay" *ngIf="showAddNodeDialog" (click)="closeAddNodeDialog()">
     <div class="dialog" (click)="$event.stopPropagation()">
