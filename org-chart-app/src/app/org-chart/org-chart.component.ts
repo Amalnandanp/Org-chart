@@ -529,7 +529,7 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
     });
 
     // Add extra padding to ensure nodes aren't cropped, especially top and bottom nodes
-    const padding = this.useCustomCard ? 150 : 120;
+    const padding = 50;
     minX -= padding;
     minY -= padding;
     maxX += padding;
@@ -694,16 +694,32 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
   }
 
   public zoomIn(): void {
+    const svgNode = this.svg.node();
+    if (!svgNode) return;
+
+    const parent = svgNode.parentElement;
+    const width = parent.clientWidth;
+    const height = parent.clientHeight;
+
     this.svg.transition().duration(300).call(
       this.zoom.scaleBy,
-      1.3
+      1.3,
+      [width / 2, height / 2]
     );
   }
 
   public zoomOut(): void {
+    const svgNode = this.svg.node();
+    if (!svgNode) return;
+
+    const parent = svgNode.parentElement;
+    const width = parent.clientWidth;
+    const height = parent.clientHeight;
+
     this.svg.transition().duration(300).call(
       this.zoom.scaleBy,
-      0.7
+      0.7,
+      [width / 2, height / 2]
     );
   }
 
@@ -716,7 +732,7 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
     const fullHeight = parent.clientHeight;
 
     // Add extra padding to prevent cropping of top and bottom nodes
-    const padding = this.useCustomCard ? 150 : 120;
+    const padding = 40;
     const width = bounds.width + (padding * 2);
     const height = bounds.height + (padding * 2);
     const midX = bounds.x + bounds.width / 2;
