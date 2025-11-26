@@ -1,0 +1,7 @@
+[build]
+  base = "org-chart-app"
+  command = "npm run build"
+  publish = "dist/org-chart-app"
+
+[build.environment]
+  NODE_OPTIONS = "--openssl-legacy-provider"
