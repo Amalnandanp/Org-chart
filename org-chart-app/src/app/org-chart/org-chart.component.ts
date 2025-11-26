@@ -40,7 +40,10 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
   private chartPadding = 50; // Padding for fit to screen and zoom to results
   public horizontalGapPx = 50; // Horizontal gap between sibling nodes in pixels (min: 10, max: 300)
   public levelDepthPx = 200; // Vertical distance between hierarchy levels in pixels (min: 100, max: 500)
+  public siblingSeparation = 0.5; // Separation multiplier for siblings (min: 0.3, max: 2.0)
+  public nonSiblingSeparation = 0.6; // Separation multiplier for non-siblings (min: 0.3, max: 2.0)
   public linkStyle: 'curved' | 'straight' = 'straight'; // Toggle between curved and 90deg bend
+  public orientation: 'vertical' | 'horizontal' = 'vertical'; // Toggle between vertical and horizontal layout
   public useCustomCard = false; // Toggle between default and custom card
   public searchKeyword = ''; // Search keyword
   public showNoResults = false; // Show no results message
@@ -164,13 +167,14 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
       .attr('transform', `translate(${this.width / 2}, 50)`);
 
     // Create tree layout with dynamic node spacing based on card dimensions
+    // Gap is added only to the dimension that controls sibling spacing (width in vertical mode)
     const nodeSize: [number, number] = this.useCustomCard
-      ? [this.customCardWidth + this.horizontalGapPx, this.customCardHeight + this.horizontalGapPx]
-      : [this.nodeWidth + this.horizontalGapPx, this.nodeHeight + this.horizontalGapPx];
+      ? [this.customCardWidth + this.horizontalGapPx, this.customCardHeight]
+      : [this.nodeWidth + this.horizontalGapPx, this.nodeHeight];
     this.tree = d3.tree()
       .nodeSize(nodeSize)
       .separation((a: any, b: any) => {
-        return a.parent === b.parent ? 1 : 1.2;
+        return a.parent === b.parent ? this.siblingSeparation : this.nonSiblingSeparation;
       });
 
     // Process data
@@ -200,6 +204,15 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
     nodes.forEach((d: any) => {
       d.y = d.depth * this.levelDepthPx;
     });
+
+    // Swap x and y for horizontal orientation
+    if (this.orientation === 'horizontal') {
+      nodes.forEach((d: any) => {
+        const temp = d.x;
+        d.x = d.y;
+        d.y = temp;
+      });
+    }
 
     // ****************** Nodes section ***************************
 
@@ -330,18 +343,36 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
   }
 
   private diagonal(s: any, d: any): string {
-    if (this.linkStyle === 'straight') {
-      // 90-degree bend (right angle)
-      return `M ${s.x} ${s.y}
-              V ${(s.y + d.y) / 2}
-              H ${d.x}
-              V ${d.y}`;
+    if (this.orientation === 'horizontal') {
+      // Horizontal orientation: connect right side of parent to left side of child
+      if (this.linkStyle === 'straight') {
+        // 90-degree bend for horizontal layout
+        return `M ${s.x} ${s.y}
+                H ${(s.x + d.x) / 2}
+                V ${d.y}
+                H ${d.x}`;
+      } else {
+        // Curved path for horizontal layout
+        return `M ${s.x} ${s.y}
+                C ${(s.x + d.x) / 2} ${s.y},
+                  ${(s.x + d.x) / 2} ${d.y},
+                  ${d.x} ${d.y}`;
+      }
     } else {
-      // Curved path (default)
-      return `M ${s.x} ${s.y}
-              C ${s.x} ${(s.y + d.y) / 2},
-                ${d.x} ${(s.y + d.y) / 2},
-                ${d.x} ${d.y}`;
+      // Vertical orientation: connect bottom of parent to top of child
+      if (this.linkStyle === 'straight') {
+        // 90-degree bend for vertical layout
+        return `M ${s.x} ${s.y}
+                V ${(s.y + d.y) / 2}
+                H ${d.x}
+                V ${d.y}`;
+      } else {
+        // Curved path for vertical layout
+        return `M ${s.x} ${s.y}
+                C ${s.x} ${(s.y + d.y) / 2},
+                  ${d.x} ${(s.y + d.y) / 2},
+                  ${d.x} ${d.y}`;
+      }
     }
   }
 
@@ -776,6 +807,12 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
     this.update(this.root);
   }
 
+  // Toggle orientation between vertical and horizontal
+  public toggleOrientation(): void {
+    this.orientation = this.orientation === 'vertical' ? 'horizontal' : 'vertical';
+    this.createChart(); // Recreate chart with new orientation
+  }
+
   // Toggle between default and custom card
   public toggleCardStyle(): void {
     this.useCustomCard = !this.useCustomCard;
@@ -791,6 +828,18 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
   // Adjust level depth in pixels
   public adjustLevelDepth(delta: number): void {
     this.levelDepthPx = Math.max(100, Math.min(500, this.levelDepthPx + delta));
+    this.createChart();
+  }
+
+  // Adjust sibling separation multiplier
+  public adjustSiblingSeparation(delta: number): void {
+    this.siblingSeparation = Math.max(0.3, Math.min(2.0, this.siblingSeparation + delta));
+    this.createChart();
+  }
+
+  // Adjust non-sibling separation multiplier
+  public adjustNonSiblingSeparation(delta: number): void {
+    this.nonSiblingSeparation = Math.max(0.3, Math.min(2.0, this.nonSiblingSeparation + delta));
     this.createChart();
   }
 
