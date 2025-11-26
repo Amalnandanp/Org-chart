@@ -44,28 +44,19 @@
     </div>
     <div class="toolbar-group">
       <div class="spacing-control">
-        <label>Horizontal Gap: {{ horizontalGapPx }}px (10-300)</label>
-        <button class="btn btn-icon" (click)="adjustHorizontalSpacing(-10)" title="Decrease Horizontal Gap">-</button>
-        <button class="btn btn-icon" (click)="adjustHorizontalSpacing(10)" title="Increase Horizontal Gap">+</button>
+        <label>Sibling Gap: {{ siblingGapPx }}px (0-100)</label>
+        <button class="btn btn-icon" (click)="adjustSiblingGap(-5)" title="Decrease Sibling Gap">-</button>
+        <button class="btn btn-icon" (click)="adjustSiblingGap(5)" title="Increase Sibling Gap">+</button>
       </div>
       <div class="spacing-control">
-        <label>Level Depth: {{ levelDepthPx }}px (100-500)</label>
-        <button class="btn btn-icon" (click)="adjustLevelDepth(-10)" title="Decrease Level Depth">-</button>
-        <button class="btn btn-icon" (click)="adjustLevelDepth(10)" title="Increase Level Depth">+</button>
+        <label>Cousin Gap: {{ cousinGapPx }}px (0-100)</label>
+        <button class="btn btn-icon" (click)="adjustCousinGap(-5)" title="Decrease Cousin Gap">-</button>
+        <button class="btn btn-icon" (click)="adjustCousinGap(5)" title="Increase Cousin Gap">+</button>
       </div>
       <div class="spacing-control">
-        <label>Sibling Sep: {{ siblingSeparation.toFixed(1) }} (0.3-2.0)</label>
-        <button class="btn btn-icon" (click)="adjustSiblingSeparation(-0.1)"
-          title="Decrease Sibling Separation">-</button>
-        <button class="btn btn-icon" (click)="adjustSiblingSeparation(0.1)"
-          title="Increase Sibling Separation">+</button>
-      </div>
-      <div class="spacing-control">
-        <label>Non-Sibling Sep: {{ nonSiblingSeparation.toFixed(1) }} (0.3-2.0)</label>
-        <button class="btn btn-icon" (click)="adjustNonSiblingSeparation(-0.1)"
-          title="Decrease Non-Sibling Separation">-</button>
-        <button class="btn btn-icon" (click)="adjustNonSiblingSeparation(0.1)"
-          title="Increase Non-Sibling Separation">+</button>
+        <label>Level Gap: {{ levelGapPx }}px (50-200)</label>
+        <button class="btn btn-icon" (click)="adjustLevelGap(-10)" title="Decrease Level Gap">-</button>
+        <button class="btn btn-icon" (click)="adjustLevelGap(10)" title="Increase Level Gap">+</button>
       </div>
     </div>
     <div class="toolbar-group">

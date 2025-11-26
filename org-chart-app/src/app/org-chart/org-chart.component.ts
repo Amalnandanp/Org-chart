@@ -38,10 +38,9 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
   private customCardWidth = 220;
   private customCardHeight = 140;
   private chartPadding = 50; // Padding for fit to screen and zoom to results
-  public horizontalGapPx = 50; // Horizontal gap between sibling nodes in pixels (min: 10, max: 300)
-  public levelDepthPx = 200; // Vertical distance between hierarchy levels in pixels (min: 100, max: 500)
-  public siblingSeparation = 0.5; // Separation multiplier for siblings (min: 0.3, max: 2.0)
-  public nonSiblingSeparation = 0.6; // Separation multiplier for non-siblings (min: 0.3, max: 2.0)
+  public siblingGapPx = 20; // Horizontal gap between sibling nodes in pixels (min: 0, max: 100)
+  public cousinGapPx = 40; // Horizontal gap between cousin nodes in pixels (min: 0, max: 100)
+  public levelGapPx = 100; // Vertical distance between hierarchy levels in pixels (min: 50, max: 200)
   public linkStyle: 'curved' | 'straight' = 'straight'; // Toggle between curved and 90deg bend
   public orientation: 'vertical' | 'horizontal' = 'vertical'; // Toggle between vertical and horizontal layout
   public useCustomCard = false; // Toggle between default and custom card
@@ -84,7 +83,22 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
             children: [
               { id: '7', name: 'Alice Brown', title: 'Senior Developer', employeeCode: 'EMP007', avatar: 'https://i.pravatar.cc/150?img=1', department: 'Engineering' },
               { id: '8', name: 'Charlie Davis', title: 'Developer', employeeCode: 'EMP008', avatar: 'https://i.pravatar.cc/150?img=8', department: 'Engineering' },
-              { id: '9', name: 'Diana Evans', title: 'Junior Developer', employeeCode: 'EMP009', avatar: 'https://i.pravatar.cc/150?img=9', department: 'Engineering' }
+              { id: '9', name: 'Diana Evans', title: 'Junior Developer', employeeCode: 'EMP009', avatar: 'https://i.pravatar.cc/150?img=9', department: 'Engineering' },
+              { id: '14', name: 'Liam Wilson', title: 'Developer', employeeCode: 'EMP014', avatar: 'https://i.pravatar.cc/150?img=16', department: 'Engineering' },
+              { id: '15', name: 'Noah Martinez', title: 'Developer', employeeCode: 'EMP015', avatar: 'https://i.pravatar.cc/150?img=17', department: 'Engineering' },
+              { id: '16', name: 'Olivia Anderson', title: 'Developer', employeeCode: 'EMP016', avatar: 'https://i.pravatar.cc/150?img=18', department: 'Engineering' },
+              { id: '17', name: 'William Thomas', title: 'Developer', employeeCode: 'EMP017', avatar: 'https://i.pravatar.cc/150?img=19', department: 'Engineering' },
+              { id: '18', name: 'James Taylor', title: 'Developer', employeeCode: 'EMP018', avatar: 'https://i.pravatar.cc/150?img=20', department: 'Engineering' },
+              { id: '19', name: 'Benjamin Moore', title: 'Developer', employeeCode: 'EMP019', avatar: 'https://i.pravatar.cc/150?img=21', department: 'Engineering' },
+              { id: '20', name: 'Lucas Jackson', title: 'Developer', employeeCode: 'EMP020', avatar: 'https://i.pravatar.cc/150?img=22', department: 'Engineering' },
+              { id: '21', name: 'Henry White', title: 'Developer', employeeCode: 'EMP021', avatar: 'https://i.pravatar.cc/150?img=23', department: 'Engineering' },
+              { id: '22', name: 'Alexander Harris', title: 'Developer', employeeCode: 'EMP022', avatar: 'https://i.pravatar.cc/150?img=24', department: 'Engineering' },
+              { id: '23', name: 'Mason Martin', title: 'Developer', employeeCode: 'EMP023', avatar: 'https://i.pravatar.cc/150?img=25', department: 'Engineering' },
+              { id: '24', name: 'Michael Thompson', title: 'Developer', employeeCode: 'EMP024', avatar: 'https://i.pravatar.cc/150?img=26', department: 'Engineering' },
+              { id: '25', name: 'Ethan Garcia', title: 'Developer', employeeCode: 'EMP025', avatar: 'https://i.pravatar.cc/150?img=27', department: 'Engineering' },
+              { id: '26', name: 'Daniel Martinez', title: 'Developer', employeeCode: 'EMP026', avatar: 'https://i.pravatar.cc/150?img=28', department: 'Engineering' },
+              { id: '27', name: 'Matthew Robinson', title: 'Developer', employeeCode: 'EMP027', avatar: 'https://i.pravatar.cc/150?img=29', department: 'Engineering' },
+              { id: '28', name: 'Joseph Clark', title: 'Developer', employeeCode: 'EMP028', avatar: 'https://i.pravatar.cc/150?img=30', department: 'Engineering' }
             ]
           },
           {
@@ -167,14 +181,27 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
       .attr('transform', `translate(${this.width / 2}, 50)`);
 
     // Create tree layout with dynamic node spacing based on card dimensions
-    // Gap is added only to the dimension that controls sibling spacing (width in vertical mode)
-    const nodeSize: [number, number] = this.useCustomCard
-      ? [this.customCardWidth + this.horizontalGapPx, this.customCardHeight]
-      : [this.nodeWidth + this.horizontalGapPx, this.nodeHeight];
+    // We use the sibling gap to define the base "node size" for the tree layout
+    const nodeWidth = this.useCustomCard ? this.customCardWidth : this.nodeWidth;
+    const nodeHeight = this.useCustomCard ? this.customCardHeight : this.nodeHeight;
+
+    // In vertical mode, siblings are arranged horizontally (use width)
+    // In horizontal mode, siblings are arranged vertically (use height)
+    // Note: We swap X/Y later for horizontal mode, so D3's "x" (sibling axis)
+    // effectively becomes the Y axis in horizontal mode.
+    const isVertical = this.orientation === 'vertical';
+    const siblingDimension = isVertical ? nodeWidth : nodeHeight;
+
+    // The first dimension of nodeSize is the spacing between siblings
+    const nodeSize: [number, number] = [siblingDimension + this.siblingGapPx, isVertical ? nodeHeight : nodeWidth];
+
     this.tree = d3.tree()
       .nodeSize(nodeSize)
       .separation((a: any, b: any) => {
-        return a.parent === b.parent ? this.siblingSeparation : this.nonSiblingSeparation;
+        // If siblings, return 1 (standard nodeSize distance)
+        // If cousins, calculate ratio needed to achieve cousinGapPx
+        // Ratio = (Dimension + CousinGap) / (Dimension + SiblingGap)
+        return a.parent === b.parent ? 1 : (siblingDimension + this.cousinGapPx) / (siblingDimension + this.siblingGapPx);
       });
 
     // Process data
@@ -201,8 +228,15 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
     const links = treeData.links();
 
     // Normalize for fixed-depth - use pixel-based level depth
+    // We calculate the absolute position based on the node dimension + gap
+    // This ensures levelGapPx represents the actual empty space between levels
+    const isVertical = this.orientation === 'vertical';
+    const nodeWidth = this.useCustomCard ? this.customCardWidth : this.nodeWidth;
+    const nodeHeight = this.useCustomCard ? this.customCardHeight : this.nodeHeight;
+    const levelDimension = isVertical ? nodeHeight : nodeWidth;
+
     nodes.forEach((d: any) => {
-      d.y = d.depth * this.levelDepthPx;
+      d.y = d.depth * (levelDimension + this.levelGapPx);
     });
 
     // Swap x and y for horizontal orientation
@@ -819,27 +853,21 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
     this.createChart(); // Recreate chart with new card style
   }
 
-  // Adjust horizontal gap in pixels
-  public adjustHorizontalSpacing(delta: number): void {
-    this.horizontalGapPx = Math.max(10, Math.min(300, this.horizontalGapPx + delta));
+  // Adjust sibling gap in pixels
+  public adjustSiblingGap(delta: number): void {
+    this.siblingGapPx = Math.max(0, Math.min(100, this.siblingGapPx + delta));
     this.createChart();
   }
 
-  // Adjust level depth in pixels
-  public adjustLevelDepth(delta: number): void {
-    this.levelDepthPx = Math.max(100, Math.min(500, this.levelDepthPx + delta));
+  // Adjust cousin gap in pixels
+  public adjustCousinGap(delta: number): void {
+    this.cousinGapPx = Math.max(0, Math.min(100, this.cousinGapPx + delta));
     this.createChart();
   }
 
-  // Adjust sibling separation multiplier
-  public adjustSiblingSeparation(delta: number): void {
-    this.siblingSeparation = Math.max(0.3, Math.min(2.0, this.siblingSeparation + delta));
-    this.createChart();
-  }
-
-  // Adjust non-sibling separation multiplier
-  public adjustNonSiblingSeparation(delta: number): void {
-    this.nonSiblingSeparation = Math.max(0.3, Math.min(2.0, this.nonSiblingSeparation + delta));
+  // Adjust level gap in pixels
+  public adjustLevelGap(delta: number): void {
+    this.levelGapPx = Math.max(50, Math.min(200, this.levelGapPx + delta));
     this.createChart();
   }
 
