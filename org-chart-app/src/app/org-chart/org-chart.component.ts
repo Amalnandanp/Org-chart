@@ -35,7 +35,12 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
   private duration = 750;
   private nodeWidth = 180;
   private nodeHeight = 80;
-  public linkStyle: 'curved' | 'straight' = 'curved'; // Toggle between curved and 90deg bend
+  private customCardWidth = 220;
+  private customCardHeight = 140;
+  private chartPadding = 50; // Padding for fit to screen and zoom to results
+  public horizontalGapPx = 50; // Horizontal gap between sibling nodes in pixels (min: 10, max: 300)
+  public levelDepthPx = 200; // Vertical distance between hierarchy levels in pixels (min: 100, max: 500)
+  public linkStyle: 'curved' | 'straight' = 'straight'; // Toggle between curved and 90deg bend
   public useCustomCard = false; // Toggle between default and custom card
   public searchKeyword = ''; // Search keyword
   public showNoResults = false; // Show no results message
@@ -158,8 +163,10 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
     this.g = this.svg.append('g')
       .attr('transform', `translate(${this.width / 2}, 50)`);
 
-    // Create tree layout
-    const nodeSize: [number, number] = this.useCustomCard ? [280, 200] : [this.nodeWidth + 50, this.nodeHeight + 80];
+    // Create tree layout with dynamic node spacing based on card dimensions
+    const nodeSize: [number, number] = this.useCustomCard
+      ? [this.customCardWidth + this.horizontalGapPx, this.customCardHeight + this.horizontalGapPx]
+      : [this.nodeWidth + this.horizontalGapPx, this.nodeHeight + this.horizontalGapPx];
     this.tree = d3.tree()
       .nodeSize(nodeSize)
       .separation((a: any, b: any) => {
@@ -189,9 +196,9 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
     const nodes = treeData.descendants();
     const links = treeData.links();
 
-    // Normalize for fixed-depth
+    // Normalize for fixed-depth - use pixel-based level depth
     nodes.forEach((d: any) => {
-      d.y = d.depth * 180;
+      d.y = d.depth * this.levelDepthPx;
     });
 
     // ****************** Nodes section ***************************
@@ -371,6 +378,17 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
     return name.includes(keyword) || employeeCode.includes(keyword);
   }
 
+  // Calculate required padding based on card dimensions to prevent cropping
+  private getRequiredPadding(): number {
+    if (this.useCustomCard) {
+      // Use half of custom card height to ensure no cropping
+      return Math.max(this.customCardHeight / 2, this.chartPadding);
+    } else {
+      // Use half of default card height to ensure no cropping
+      return Math.max(this.nodeHeight / 2, this.chartPadding);
+    }
+  }
+
   private searchTimeout: any;
   private zoomTimeout: any;
 
@@ -529,7 +547,7 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
     });
 
     // Add extra padding to ensure nodes aren't cropped, especially top and bottom nodes
-    const padding = 50;
+    const padding = this.getRequiredPadding();
     minX -= padding;
     minY -= padding;
     maxX += padding;
@@ -628,15 +646,12 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
 
   // Render custom HTML card with avatar, email, phone, etc.
   private renderCustomCard(nodeEnter: any): void {
-    const cardWidth = 220;
-    const cardHeight = 140;
-
     // Card container
     const card = nodeEnter.append('foreignObject')
-      .attr('width', cardWidth)
-      .attr('height', cardHeight)
-      .attr('x', -cardWidth / 2)
-      .attr('y', -cardHeight / 2)
+      .attr('width', this.customCardWidth)
+      .attr('height', this.customCardHeight)
+      .attr('x', -this.customCardWidth / 2)
+      .attr('y', -this.customCardHeight / 2)
       .style('overflow', 'visible');
 
     // HTML content using foreignObject
@@ -732,7 +747,7 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
     const fullHeight = parent.clientHeight;
 
     // Add extra padding to prevent cropping of top and bottom nodes
-    const padding = 40;
+    const padding = this.getRequiredPadding();
     const width = bounds.width + (padding * 2);
     const height = bounds.height + (padding * 2);
     const midX = bounds.x + bounds.width / 2;
@@ -740,7 +755,7 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
 
     if (width === 0 || height === 0) return;
 
-    const scale = 0.85 / Math.max(width / fullWidth, height / fullHeight);
+    const scale = 1.0 / Math.max(width / fullWidth, height / fullHeight);
     const translate = [fullWidth / 2 - scale * midX, fullHeight / 2 - scale * midY];
 
     this.svg.transition().duration(750).call(
@@ -765,6 +780,18 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
   public toggleCardStyle(): void {
     this.useCustomCard = !this.useCustomCard;
     this.createChart(); // Recreate chart with new card style
+  }
+
+  // Adjust horizontal gap in pixels
+  public adjustHorizontalSpacing(delta: number): void {
+    this.horizontalGapPx = Math.max(10, Math.min(300, this.horizontalGapPx + delta));
+    this.createChart();
+  }
+
+  // Adjust level depth in pixels
+  public adjustLevelDepth(delta: number): void {
+    this.levelDepthPx = Math.max(100, Math.min(500, this.levelDepthPx + delta));
+    this.createChart();
   }
 
   // Open dialog to add a new node
