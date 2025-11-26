@@ -15,6 +15,8 @@ export interface OrgNode {
   phone?: string;
   department?: string;
   customData?: any;
+  hideSiblings?: boolean;
+  _hiddenSiblings?: OrgNode[]; // Store hidden siblings for restoration
 }
 
 @Component({
@@ -71,6 +73,7 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
         email: 'jane.smith@company.com',
         phone: '+1 234 567 8901',
         department: 'Technology',
+        hideSiblings: true,
         children: [
           {
             id: '4',
@@ -80,11 +83,12 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
             avatar: 'https://i.pravatar.cc/150?img=13',
             email: 'bob.wilson@company.com',
             department: 'Engineering',
+            hideSiblings: true,
             children: [
               { id: '7', name: 'Alice Brown', title: 'Senior Developer', employeeCode: 'EMP007', avatar: 'https://i.pravatar.cc/150?img=1', department: 'Engineering' },
               { id: '8', name: 'Charlie Davis', title: 'Developer', employeeCode: 'EMP008', avatar: 'https://i.pravatar.cc/150?img=8', department: 'Engineering' },
               { id: '9', name: 'Diana Evans', title: 'Junior Developer', employeeCode: 'EMP009', avatar: 'https://i.pravatar.cc/150?img=9', department: 'Engineering' },
-              { id: '14', name: 'Liam Wilson', title: 'Developer', employeeCode: 'EMP014', avatar: 'https://i.pravatar.cc/150?img=16', department: 'Engineering' },
+              { id: '14', name: 'Liam Wilson', title: 'Developer', employeeCode: 'EMP014', avatar: 'https://i.pravatar.cc/150?img=16', department: 'Engineering', hideSiblings: true },
               { id: '15', name: 'Noah Martinez', title: 'Developer', employeeCode: 'EMP015', avatar: 'https://i.pravatar.cc/150?img=17', department: 'Engineering' },
               { id: '16', name: 'Olivia Anderson', title: 'Developer', employeeCode: 'EMP016', avatar: 'https://i.pravatar.cc/150?img=18', department: 'Engineering' },
               { id: '17', name: 'William Thomas', title: 'Developer', employeeCode: 'EMP017', avatar: 'https://i.pravatar.cc/150?img=19', department: 'Engineering' },
@@ -213,6 +217,9 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
     this.root.descendants().forEach((d: any) => {
       d._children = d.children;
     });
+
+    // Apply hide siblings logic initially
+    this.applyHideSiblingsLogic(this.root);
 
     this.update(this.root);
   }
@@ -411,7 +418,38 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
   }
 
   private toggleNode(d: any): void {
-    if (d.children) {
+    // If there are hidden siblings, reveal them first
+    if (d.data._hiddenSiblings && d.data._hiddenSiblings.length > 0) {
+      // Restore hidden siblings
+      // We need to find the D3 nodes corresponding to these hidden data nodes
+      // Since they were removed from the hierarchy, we might need to reload/reset
+      // But simpler approach for now:
+      // Just clear the hidden flag and re-run logic (or just expand all for this node)
+
+      // Actually, since we modified the d.children array directly in applyHideSiblingsLogic,
+      // we need to restore the full children list.
+      // The easiest way is to re-read from d.data.children (source of truth)
+      // But d.data.children is just data, not D3 nodes.
+
+      // Better approach:
+      // 1. Mark that we want to show all for this node
+      d.data._showAll = true;
+
+      // 2. Re-create the hierarchy part or just reset the view
+      // Since we are modifying the structure, let's just re-run the logic
+      // But we need to persist the state.
+
+      // Let's use a simpler approach:
+      // When we hide siblings, we move them to d._hiddenChildren in the D3 node
+      if (d._hiddenChildren) {
+        d.children = (d.children || []).concat(d._hiddenChildren);
+        d._hiddenChildren = null;
+
+        // Sort children to maintain original order if needed (optional)
+        // d.children.sort(...)
+      }
+      d.data._hiddenSiblings = null; // Clear the flag so we know they are revealed
+    } else if (d.children) {
       d._children = d.children;
       d.children = null;
     } else {
@@ -422,12 +460,52 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
   }
 
   private getChildrenCount(d: any): number {
-    if (d._children) {
-      return d._children.length;
-    } else if (d.children) {
-      return d.children.length;
+    // Always return the total count from the data source
+    if (d.data.children) {
+      return d.data.children.length;
     }
     return 0;
+  }
+
+  // Apply hide siblings logic recursively
+  private applyHideSiblingsLogic(node: any): void {
+    if (!node.children && !node._children) return;
+
+    const children = node.children || node._children;
+
+    if (children) {
+      // Check if any child has hideSiblings: true
+      const hasHiddenSiblingRequest = children.some((child: any) => child.data.hideSiblings);
+
+      if (hasHiddenSiblingRequest) {
+        // Filter children
+        const visible = children.filter((child: any) => child.data.hideSiblings);
+        const hidden = children.filter((child: any) => !child.data.hideSiblings);
+
+        // Store hidden children in a temporary property on the D3 node
+        // so we can restore them later without losing their state
+        node._hiddenChildren = hidden;
+
+        // Update the active children array
+        if (node.children) {
+          node.children = visible;
+        } else {
+          node._children = visible;
+        }
+
+        // Also mark on data for easier checking
+        node.data._hiddenSiblings = hidden.map((h: any) => h.data);
+      }
+
+      // Recurse
+      children.forEach((child: any) => this.applyHideSiblingsLogic(child));
+    }
+  }
+
+  // Reset view to apply hide siblings logic again
+  public resetView(): void {
+    // Re-create chart to reset all states
+    this.createChart();
   }
 
   // Check if node matches search criteria (case insensitive)
