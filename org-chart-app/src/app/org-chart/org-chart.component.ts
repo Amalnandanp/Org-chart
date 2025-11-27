@@ -88,7 +88,7 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
             avatar: 'https://i.pravatar.cc/150?img=13',
             email: 'bob.wilson@company.com',
             department: 'Engineering',
-            // hideSiblings: true,
+            hideSiblings: true,
             children: [
               { id: '7', name: 'Alice Brown', title: 'Senior Developer', employeeCode: 'EMP007', avatar: 'https://i.pravatar.cc/150?img=1', department: 'Engineering' },
               { id: '8', name: 'Charlie Davis', title: 'Developer', employeeCode: 'EMP008', avatar: 'https://i.pravatar.cc/150?img=8', department: 'Engineering' },
@@ -594,44 +594,47 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
   }
 
   private toggleNode(d: any): void {
-    // If there are hidden siblings, reveal them first
-    if (d.data._hiddenSiblings && d.data._hiddenSiblings.length > 0) {
-      // Restore hidden siblings
-      // We need to find the D3 nodes corresponding to these hidden data nodes
-      // Since they were removed from the hierarchy, we might need to reload/reset
-      // But simpler approach for now:
-      // Just clear the hidden flag and re-run logic (or just expand all for this node)
-
-      // Actually, since we modified the d.children array directly in applyHideSiblingsLogic,
-      // we need to restore the full children list.
-      // The easiest way is to re-read from d.data.children (source of truth)
-      // But d.data.children is just data, not D3 nodes.
-
-      // Better approach:
-      // 1. Mark that we want to show all for this node
-      d.data._showAll = true;
-
-      // 2. Re-create the hierarchy part or just reset the view
-      // Since we are modifying the structure, let's just re-run the logic
-      // But we need to persist the state.
-
-      // Let's use a simpler approach:
-      // When we hide siblings, we move them to d._hiddenChildren in the D3 node
-      if (d._hiddenChildren) {
-        d.children = (d.children || []).concat(d._hiddenChildren);
-        d._hiddenChildren = null;
-
-        // Sort children to maintain original order if needed (optional)
-        // d.children.sort(...)
-      }
-      d.data._hiddenSiblings = null; // Clear the flag so we know they are revealed
-    } else if (d.children) {
+    // Priority 1: If node is already expanded (has children), collapse it
+    if (d.children) {
+      // Collapsing
       d._children = d.children;
       d.children = null;
-    } else {
+
+      // If we had previously revealed hidden siblings, restore the _hidden Children
+      // so they get hidden again on next expand
+      if (d.data._originalHiddenChildren) {
+        d._hiddenChildren = d.data._originalHiddenChildren;
+        d.data._hiddenSiblings = d.data._originalHiddenChildren.map((h: any) => h.data);
+        d.data._originalHiddenChildren = null; // Clear after restoring
+      }
+      this.update(d);
+      return;
+    }
+
+    // Priority 2: If there are hidden siblings (node is collapsed), reveal them first
+    if (d.data._hiddenSiblings && d.data._hiddenSiblings.length > 0) {
+      // Restore hidden siblings
+      if (d._hiddenChildren) {
+        d.children = (d._children || []).concat(d._hiddenChildren);
+
+        // Don't null out _hiddenChildren yet - we need to remember them for later
+        // Store them in a persistent flag
+        d.data._originalHiddenChildren = d._hiddenChildren;
+        d._hiddenChildren = null;
+        d._children = null; // Important: clear _children since we moved them to children
+      }
+      d.data._hiddenSiblings = null; // Clear the flag so we know they are revealed
+
+      this.update(d);
+      return;
+    }
+
+    // Priority 3: Normal expand (node is collapsed and has no hidden siblings)
+    if (d._children) {
       d.children = d._children;
       d._children = null;
     }
+
     this.update(d);
   }
 
