@@ -17,6 +17,9 @@ export interface OrgNode {
   customData?: any;
   hideSiblings?: boolean;
   _hiddenSiblings?: OrgNode[]; // Store hidden siblings for restoration
+  // gridColumns is now global, but we can keep this for optional override if needed
+  gridColumns?: number;
+  _gridRemainder?: any[]; // Store remaining children for grid layout
 }
 
 @Component({
@@ -43,6 +46,8 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
   public siblingGapPx = 20; // Horizontal gap between sibling nodes in pixels (min: 0, max: 100)
   public cousinGapPx = 40; // Horizontal gap between cousin nodes in pixels (min: 0, max: 100)
   public levelGapPx = 100; // Vertical distance between hierarchy levels in pixels (min: 50, max: 200)
+  public gridColumns = 9; // Number of columns for grid layout (min: 1, max: 10)
+  public useGridLayout = false; // Toggle to enable/disable grid layout feature
   public linkStyle: 'curved' | 'straight' = 'straight'; // Toggle between curved and 90deg bend
   public orientation: 'vertical' | 'horizontal' = 'vertical'; // Toggle between vertical and horizontal layout
   public useCustomCard = false; // Toggle between default and custom card
@@ -83,7 +88,7 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
             avatar: 'https://i.pravatar.cc/150?img=13',
             email: 'bob.wilson@company.com',
             department: 'Engineering',
-            hideSiblings: true,
+            // hideSiblings: true,
             children: [
               { id: '7', name: 'Alice Brown', title: 'Senior Developer', employeeCode: 'EMP007', avatar: 'https://i.pravatar.cc/150?img=1', department: 'Engineering' },
               { id: '8', name: 'Charlie Davis', title: 'Developer', employeeCode: 'EMP008', avatar: 'https://i.pravatar.cc/150?img=8', department: 'Engineering' },
@@ -114,7 +119,26 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
             email: 'emma.johnson@company.com',
             department: 'Quality Assurance',
             children: [
-              { id: '10', name: 'Frank Green', title: 'QA Engineer', employeeCode: 'EMP010', avatar: 'https://i.pravatar.cc/150?img=11', department: 'Quality Assurance' },
+              {
+                id: '10',
+                name: 'Frank Green',
+                title: 'QA Engineer',
+                employeeCode: 'EMP010',
+                avatar: 'https://i.pravatar.cc/150?img=11',
+                department: 'Quality Assurance',
+                children: [
+                  { id: '29', name: 'Sophia Wilson', title: 'Junior QA Tester', employeeCode: 'EMP029', avatar: 'https://i.pravatar.cc/150?img=31', department: 'Quality Assurance' },
+                  { id: '30', name: 'Jackson Brown', title: 'Junior QA Tester', employeeCode: 'EMP030', avatar: 'https://i.pravatar.cc/150?img=32', department: 'Quality Assurance' },
+                  { id: '31', name: 'Ava Davis', title: 'Junior QA Tester', employeeCode: 'EMP031', avatar: 'https://i.pravatar.cc/150?img=33', department: 'Quality Assurance' },
+                  { id: '32', name: 'Logan Miller', title: 'Test Automation Engineer', employeeCode: 'EMP032', avatar: 'https://i.pravatar.cc/150?img=34', department: 'Quality Assurance' },
+                  { id: '33', name: 'Mia Garcia', title: 'Test Automation Engineer', employeeCode: 'EMP033', avatar: 'https://i.pravatar.cc/150?img=35', department: 'Quality Assurance' },
+                  { id: '34', name: 'Aiden Martinez', title: 'Senior QA Tester', employeeCode: 'EMP034', avatar: 'https://i.pravatar.cc/150?img=36', department: 'Quality Assurance' },
+                  { id: '35', name: 'Charlotte Rodriguez', title: 'Senior QA Tester', employeeCode: 'EMP035', avatar: 'https://i.pravatar.cc/150?img=37', department: 'Quality Assurance' },
+                  { id: '36', name: 'Elijah Anderson', title: 'QA Analyst', employeeCode: 'EMP036', avatar: 'https://i.pravatar.cc/150?img=38', department: 'Quality Assurance' },
+                  { id: '37', name: 'Amelia Thomas', title: 'QA Analyst', employeeCode: 'EMP037', avatar: 'https://i.pravatar.cc/150?img=39', department: 'Quality Assurance' },
+                  { id: '38', name: 'Sebastian Lee', title: 'Performance Tester', employeeCode: 'EMP038', avatar: 'https://i.pravatar.cc/150?img=40', department: 'Quality Assurance' }
+                ]
+              },
               { id: '11', name: 'Grace Harris', title: 'QA Engineer', employeeCode: 'EMP011', avatar: 'https://i.pravatar.cc/150?img=3', department: 'Quality Assurance' }
             ]
           }
@@ -230,7 +254,14 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
       return;
     }
 
+    // 1. Prepare Grid Layout (Hide extra children from D3 to trick layout engine)
+    this.prepareGridLayout(this.root);
+
     const treeData = this.tree(this.root);
+
+    // 2. Inject Grid Nodes (Add them back with manual coordinates)
+    this.injectGridNodes(this.root);
+
     const nodes = treeData.descendants();
     const links = treeData.links();
 
@@ -243,8 +274,28 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
     const levelDimension = isVertical ? nodeHeight : nodeWidth;
 
     nodes.forEach((d: any) => {
+      // Only apply depth-based Y if it's NOT a grid node (grid nodes have manual Y)
+      // Actually, injectGridNodes sets Y relative to parent.
+      // But standard D3 nodes need this.
+      // Let's check if we should skip grid nodes.
+      // The grid nodes are already positioned by injectGridNodes.
+      // But wait, injectGridNodes runs BEFORE this loop.
+      // So this loop will overwrite grid node Ys!
+
+      // We should ONLY update Y for non-grid nodes.
+      // Or, we should run injectGridNodes AFTER this loop?
+      // But injectGridNodes needs the parent's final position.
+
+      // Strategy:
+      // 1. Run this depth loop for ALL nodes first (sets baseline Y).
+      // 2. THEN run injectGridNodes to override grid children positions.
+
       d.y = d.depth * (levelDimension + this.levelGapPx);
     });
+
+    // Re-run injectGridNodes to overwrite positions with correct parent coordinates
+    // We need to run it here because we need the parent's final (depth-based) Y.
+    this.injectGridNodes(this.root);
 
     // Swap x and y for horizontal orientation
     if (this.orientation === 'horizontal') {
@@ -401,6 +452,30 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
       }
     } else {
       // Vertical orientation: connect bottom of parent to top of child
+      if (d.data && d.data.isGridNode) {
+        // Custom path for grid nodes - "Column Gutter" Style
+        // Path: Parent Bottom -> Bus Y -> Horizontal to Gutter X -> Vertical to Child Y -> Horizontal to Child Left
+
+        const cardWidth = this.useCustomCard ? this.customCardWidth : this.nodeWidth;
+        const cardHeight = this.useCustomCard ? this.customCardHeight : this.nodeHeight;
+
+        const parentBottomY = s.y + (cardHeight / 2);
+        const childLeftX = d.x - (cardWidth / 2);
+
+        // Bus Y: 20px below parent
+        const busY = parentBottomY + 20;
+
+        // Gutter X: 15px to the left of the card
+        const gutterX = childLeftX - 15;
+
+        // Path construction
+        return `M ${s.x} ${parentBottomY}
+                V ${busY}
+                H ${gutterX}
+                V ${d.y}
+                H ${childLeftX}`;
+      }
+
       if (this.linkStyle === 'straight') {
         // 90-degree bend for vertical layout
         return `M ${s.x} ${s.y}
@@ -413,6 +488,107 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
                 C ${s.x} ${(s.y + d.y) / 2},
                   ${d.x} ${(s.y + d.y) / 2},
                   ${d.x} ${d.y}`;
+      }
+    }
+  }
+
+  // Prepare grid layout by hiding extra children from D3
+  private prepareGridLayout(node: any): void {
+    // Restore any previously hidden grid remainder to ensure we start fresh
+    if (node._gridRemainder) {
+      if (node.children) {
+        node.children = node.children.concat(node._gridRemainder);
+      } else {
+        node.children = node._gridRemainder;
+      }
+      node._gridRemainder = null;
+    }
+
+    // Check if this node uses grid layout
+    // Auto-activate grid if children count exceeds column count OR if explicitly set
+    // But only if the global useGridLayout flag is enabled
+    const columns = node.data.gridColumns || this.gridColumns;
+    const shouldGrid = this.useGridLayout && (node.data.gridColumns || (node.children && node.children.length > columns));
+
+    if (shouldGrid && node.children && node.children.length > columns) {
+      // Keep only the first 'columns' children for D3 layout
+      // This makes D3 calculate the parent's width based on just one row
+      node._gridRemainder = node.children.slice(columns);
+      node.children = node.children.slice(0, columns);
+    }
+
+    // Recurse
+    if (node.children) {
+      node.children.forEach((child: any) => this.prepareGridLayout(child));
+    }
+  }
+
+  // Inject grid nodes back into the tree with manual positions
+  private injectGridNodes(node: any): void {
+    const columns = node.data.gridColumns || this.gridColumns;
+    // Check if we should apply grid logic (same condition as prepareGridLayout)
+    // Note: node.children might be truncated now, so we check _gridRemainder too
+    // But only if the global useGridLayout flag is enabled
+    const hasRemainder = !!node._gridRemainder;
+    const shouldGrid = this.useGridLayout && (node.data.gridColumns || hasRemainder || (node.children && node.children.length > columns));
+
+    if (shouldGrid && (node.children || node._gridRemainder)) {
+      // Combine all children (visible + remainder)
+      let allChildren = node.children || [];
+      if (node._gridRemainder) {
+        allChildren = allChildren.concat(node._gridRemainder);
+        // Restore full children array to the node so descendants() finds them
+        node.children = allChildren;
+        node._gridRemainder = null; // Clear remainder as they are now in children
+      }
+
+      if (allChildren.length > 0) {
+        const nodeWidth = this.useCustomCard ? this.customCardWidth : this.nodeWidth;
+        const nodeHeight = this.useCustomCard ? this.customCardHeight : this.nodeHeight;
+        const itemWidth = nodeWidth + this.siblingGapPx;
+        const itemHeight = nodeHeight + this.levelGapPx;
+
+        // Calculate starting X to center the grid under the parent
+        // We want the grid to be centered on the parent's X
+        const totalGridWidth = Math.min(allChildren.length, columns) * itemWidth;
+        // The start X is parent.x minus half grid width, plus half item width (to center first item)
+        // Wait, D3 centers the parent over the children.
+        // Since we tricked D3 with the first row, the parent.x should already be centered over the first row!
+        // So we can just use the X of the first child as the reference for the first column?
+        // Yes, but we want to enforce strict grid spacing.
+
+        // Let's calculate strict positions based on parent.x
+        const startX = node.x - (totalGridWidth / 2) + (itemWidth / 2);
+        const startY = node.y + itemHeight; // One level down
+
+        allChildren.forEach((child: any, index: number) => {
+          const col = index % columns;
+          const row = Math.floor(index / columns);
+
+          child.x = startX + (col * itemWidth) - (this.siblingGapPx / 2); // Adjust for gap centering?
+          // Actually: startX is center of first item.
+          // col * itemWidth adds width.
+          // Let's verify:
+          // If 1 item: width = itemWidth. startX = node.x - itemWidth/2 + itemWidth/2 = node.x. Correct.
+
+          // Correction: itemWidth includes the gap.
+          // D3 nodeSize is [width + gap, height].
+          // So the distance between centers is itemWidth.
+
+          child.x = startX + (col * itemWidth);
+          child.y = startY + (row * itemHeight);
+
+          // Mark as grid node
+          child.data.isGridNode = true;
+
+          // Recurse for children (though grid nodes shouldn't have children usually)
+          this.injectGridNodes(child);
+        });
+      }
+    } else {
+      // Recurse for non-grid nodes
+      if (node.children) {
+        node.children.forEach((child: any) => this.injectGridNodes(child));
       }
     }
   }
@@ -929,6 +1105,24 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
   public toggleCardStyle(): void {
     this.useCustomCard = !this.useCustomCard;
     this.createChart(); // Recreate chart with new card style
+  }
+
+  // Adjust grid columns
+  public adjustGridColumns(delta: number): void {
+    this.gridColumns = Math.max(1, Math.min(10, this.gridColumns + delta));
+    this.createChart();
+  }
+
+  // Handle grid columns input change
+  public onGridColumnsChange(): void {
+    // Validate and clamp the value
+    this.gridColumns = Math.max(1, Math.min(10, this.gridColumns));
+    this.createChart();
+  }
+
+  // Handle grid layout toggle
+  public onGridLayoutToggle(): void {
+    this.createChart();
   }
 
   // Adjust sibling gap in pixels
