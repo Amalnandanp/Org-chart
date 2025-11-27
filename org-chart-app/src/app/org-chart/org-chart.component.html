@@ -49,18 +49,6 @@
     </div>
     <div class="toolbar-group">
       <div class="spacing-control">
-        <label>
-          <input type="checkbox" [(ngModel)]="useGridLayout" (change)="onGridLayoutToggle()"
-            style="margin-right: 5px;" /> Enable Grid Layout </label>
-      </div>
-      <div class="spacing-control" *ngIf="useGridLayout">
-        <label>Grid Cols (1-10)</label>
-        <button class="btn btn-icon" (click)="adjustGridColumns(-1)" title="Decrease Columns">-</button>
-        <input type="number" [(ngModel)]="gridColumns" (change)="onGridColumnsChange()" min="1" max="10"
-          style="width: 50px; text-align: center; margin: 0 5px;" />
-        <button class="btn btn-icon" (click)="adjustGridColumns(1)" title="Increase Columns">+</button>
-      </div>
-      <div class="spacing-control">
         <label>Sibling Gap: {{ siblingGapPx }}px (0-100)</label>
         <button class="btn btn-icon" (click)="adjustSiblingGap(-5)" title="Decrease Sibling Gap">-</button>
         <button class="btn btn-icon" (click)="adjustSiblingGap(5)" title="Increase Sibling Gap">+</button>

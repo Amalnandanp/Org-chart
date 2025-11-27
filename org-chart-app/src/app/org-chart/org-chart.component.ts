@@ -17,9 +17,6 @@ export interface OrgNode {
   customData?: any;
   hideSiblings?: boolean;
   _hiddenSiblings?: OrgNode[]; // Store hidden siblings for restoration
-  // gridColumns is now global, but we can keep this for optional override if needed
-  gridColumns?: number;
-  _gridRemainder?: any[]; // Store remaining children for grid layout
 }
 
 @Component({
@@ -46,8 +43,6 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
   public siblingGapPx = 20; // Horizontal gap between sibling nodes in pixels (min: 0, max: 100)
   public cousinGapPx = 40; // Horizontal gap between cousin nodes in pixels (min: 0, max: 100)
   public levelGapPx = 100; // Vertical distance between hierarchy levels in pixels (min: 50, max: 200)
-  public gridColumns = 9; // Number of columns for grid layout (min: 1, max: 10)
-  public useGridLayout = false; // Toggle to enable/disable grid layout feature
   public linkStyle: 'curved' | 'straight' = 'straight'; // Toggle between curved and 90deg bend
   public orientation: 'vertical' | 'horizontal' = 'vertical'; // Toggle between vertical and horizontal layout
   public useCustomCard = false; // Toggle between default and custom card
@@ -193,7 +188,7 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
       .append('svg')
       .attr('width', '100%')
       .attr('height', this.height)
-      .style('background-color', '#f8f9fa');
+      .style('background-color', '#faf8f8ff');
 
     // Add zoom behavior
     this.zoom = d3.zoom()
@@ -237,13 +232,17 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
     this.root.x0 = 0;
     this.root.y0 = 0;
 
-    // Initialize all nodes as expanded
-    this.root.descendants().forEach((d: any) => {
-      d._children = d.children;
-    });
-
-    // Apply hide siblings logic initially
+    // Apply hide siblings logic FIRST (while tree is still expanded)
     this.applyHideSiblingsLogic(this.root);
+
+    // Then store the current state in _children for collapse/expand functionality
+    const storeChildren = (d: any) => {
+      if (d.children) {
+        d._children = d.children.slice(); // Create a copy
+        d.children.forEach(storeChildren);
+      }
+    };
+    storeChildren(this.root);
 
     this.update(this.root);
   }
@@ -254,14 +253,7 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
       return;
     }
 
-    // 1. Prepare Grid Layout (Hide extra children from D3 to trick layout engine)
-    this.prepareGridLayout(this.root);
-
     const treeData = this.tree(this.root);
-
-    // 2. Inject Grid Nodes (Add them back with manual coordinates)
-    this.injectGridNodes(this.root);
-
     const nodes = treeData.descendants();
     const links = treeData.links();
 
@@ -292,10 +284,6 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
 
       d.y = d.depth * (levelDimension + this.levelGapPx);
     });
-
-    // Re-run injectGridNodes to overwrite positions with correct parent coordinates
-    // We need to run it here because we need the parent's final (depth-based) Y.
-    this.injectGridNodes(this.root);
 
     // Swap x and y for horizontal orientation
     if (this.orientation === 'horizontal') {
@@ -340,12 +328,15 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
     const nodeUpdate = nodeEnter.merge(node);
 
     // Transition to the proper position for the node
+    let transitionCount = 0;
+    const totalNodes = nodeUpdate.size();
     nodeUpdate.transition()
       .duration(this.duration)
       .attr('transform', (d: any) => `translate(${d.x},${d.y})`)
       .on('end', () => {
-        // Fit to screen after transition completes
-        if (nodeUpdate.size() === nodes.length) {
+        // Fit to screen after ALL transitions complete
+        transitionCount++;
+        if (transitionCount === totalNodes) {
           setTimeout(() => this.fitToScreen(), 50);
         }
       });
@@ -452,30 +443,6 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
       }
     } else {
       // Vertical orientation: connect bottom of parent to top of child
-      if (d.data && d.data.isGridNode) {
-        // Custom path for grid nodes - "Column Gutter" Style
-        // Path: Parent Bottom -> Bus Y -> Horizontal to Gutter X -> Vertical to Child Y -> Horizontal to Child Left
-
-        const cardWidth = this.useCustomCard ? this.customCardWidth : this.nodeWidth;
-        const cardHeight = this.useCustomCard ? this.customCardHeight : this.nodeHeight;
-
-        const parentBottomY = s.y + (cardHeight / 2);
-        const childLeftX = d.x - (cardWidth / 2);
-
-        // Bus Y: 20px below parent
-        const busY = parentBottomY + 20;
-
-        // Gutter X: 15px to the left of the card
-        const gutterX = childLeftX - 15;
-
-        // Path construction
-        return `M ${s.x} ${parentBottomY}
-                V ${busY}
-                H ${gutterX}
-                V ${d.y}
-                H ${childLeftX}`;
-      }
-
       if (this.linkStyle === 'straight') {
         // 90-degree bend for vertical layout
         return `M ${s.x} ${s.y}
@@ -492,144 +459,41 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
     }
   }
 
-  // Prepare grid layout by hiding extra children from D3
-  private prepareGridLayout(node: any): void {
-    // Restore any previously hidden grid remainder to ensure we start fresh
-    if (node._gridRemainder) {
-      if (node.children) {
-        node.children = node.children.concat(node._gridRemainder);
-      } else {
-        node.children = node._gridRemainder;
-      }
-      node._gridRemainder = null;
-    }
 
-    // Check if this node uses grid layout
-    // Auto-activate grid if children count exceeds column count OR if explicitly set
-    // But only if the global useGridLayout flag is enabled
-    const columns = node.data.gridColumns || this.gridColumns;
-    const shouldGrid = this.useGridLayout && (node.data.gridColumns || (node.children && node.children.length > columns));
-
-    if (shouldGrid && node.children && node.children.length > columns) {
-      // Keep only the first 'columns' children for D3 layout
-      // This makes D3 calculate the parent's width based on just one row
-      node._gridRemainder = node.children.slice(columns);
-      node.children = node.children.slice(0, columns);
-    }
-
-    // Recurse
-    if (node.children) {
-      node.children.forEach((child: any) => this.prepareGridLayout(child));
-    }
-  }
-
-  // Inject grid nodes back into the tree with manual positions
-  private injectGridNodes(node: any): void {
-    const columns = node.data.gridColumns || this.gridColumns;
-    // Check if we should apply grid logic (same condition as prepareGridLayout)
-    // Note: node.children might be truncated now, so we check _gridRemainder too
-    // But only if the global useGridLayout flag is enabled
-    const hasRemainder = !!node._gridRemainder;
-    const shouldGrid = this.useGridLayout && (node.data.gridColumns || hasRemainder || (node.children && node.children.length > columns));
-
-    if (shouldGrid && (node.children || node._gridRemainder)) {
-      // Combine all children (visible + remainder)
-      let allChildren = node.children || [];
-      if (node._gridRemainder) {
-        allChildren = allChildren.concat(node._gridRemainder);
-        // Restore full children array to the node so descendants() finds them
-        node.children = allChildren;
-        node._gridRemainder = null; // Clear remainder as they are now in children
-      }
-
-      if (allChildren.length > 0) {
-        const nodeWidth = this.useCustomCard ? this.customCardWidth : this.nodeWidth;
-        const nodeHeight = this.useCustomCard ? this.customCardHeight : this.nodeHeight;
-        const itemWidth = nodeWidth + this.siblingGapPx;
-        const itemHeight = nodeHeight + this.levelGapPx;
-
-        // Calculate starting X to center the grid under the parent
-        // We want the grid to be centered on the parent's X
-        const totalGridWidth = Math.min(allChildren.length, columns) * itemWidth;
-        // The start X is parent.x minus half grid width, plus half item width (to center first item)
-        // Wait, D3 centers the parent over the children.
-        // Since we tricked D3 with the first row, the parent.x should already be centered over the first row!
-        // So we can just use the X of the first child as the reference for the first column?
-        // Yes, but we want to enforce strict grid spacing.
-
-        // Let's calculate strict positions based on parent.x
-        const startX = node.x - (totalGridWidth / 2) + (itemWidth / 2);
-        const startY = node.y + itemHeight; // One level down
-
-        allChildren.forEach((child: any, index: number) => {
-          const col = index % columns;
-          const row = Math.floor(index / columns);
-
-          child.x = startX + (col * itemWidth) - (this.siblingGapPx / 2); // Adjust for gap centering?
-          // Actually: startX is center of first item.
-          // col * itemWidth adds width.
-          // Let's verify:
-          // If 1 item: width = itemWidth. startX = node.x - itemWidth/2 + itemWidth/2 = node.x. Correct.
-
-          // Correction: itemWidth includes the gap.
-          // D3 nodeSize is [width + gap, height].
-          // So the distance between centers is itemWidth.
-
-          child.x = startX + (col * itemWidth);
-          child.y = startY + (row * itemHeight);
-
-          // Mark as grid node
-          child.data.isGridNode = true;
-
-          // Recurse for children (though grid nodes shouldn't have children usually)
-          this.injectGridNodes(child);
-        });
-      }
-    } else {
-      // Recurse for non-grid nodes
-      if (node.children) {
-        node.children.forEach((child: any) => this.injectGridNodes(child));
-      }
-    }
-  }
 
   private toggleNode(d: any): void {
-    // Priority 1: If node is already expanded (has children), collapse it
+    // Priority 1: If there are hidden children waiting to be revealed, show them
+    // This handles the "Partial -> Reveal" step
+    if (d.data._hiddenSiblings && d._hiddenChildren) {
+      d.children = (d.children || []).concat(d._hiddenChildren);
+
+      // Store them in a persistent flag so we can hide them again later
+      d.data._originalHiddenChildren = d._hiddenChildren;
+      d._hiddenChildren = null;
+      d.data._hiddenSiblings = null; // Clear flag
+
+      this.update(d);
+      return;
+    }
+
+    // Priority 2: If node is already expanded (has children), collapse it
+    // This handles the "Open -> Collapse" step
     if (d.children) {
-      // Collapsing
       d._children = d.children;
       d.children = null;
 
-      // If we had previously revealed hidden siblings, restore the _hidden Children
-      // so they get hidden again on next expand
+      // Restore hidden children state for next expand
       if (d.data._originalHiddenChildren) {
         d._hiddenChildren = d.data._originalHiddenChildren;
         d.data._hiddenSiblings = d.data._originalHiddenChildren.map((h: any) => h.data);
-        d.data._originalHiddenChildren = null; // Clear after restoring
+        d.data._originalHiddenChildren = null;
       }
       this.update(d);
       return;
     }
 
-    // Priority 2: If there are hidden siblings (node is collapsed), reveal them first
-    if (d.data._hiddenSiblings && d.data._hiddenSiblings.length > 0) {
-      // Restore hidden siblings
-      if (d._hiddenChildren) {
-        d.children = (d._children || []).concat(d._hiddenChildren);
-
-        // Don't null out _hiddenChildren yet - we need to remember them for later
-        // Store them in a persistent flag
-        d.data._originalHiddenChildren = d._hiddenChildren;
-        d._hiddenChildren = null;
-        d._children = null; // Important: clear _children since we moved them to children
-      }
-      d.data._hiddenSiblings = null; // Clear the flag so we know they are revealed
-
-      this.update(d);
-      return;
-    }
-
-    // Priority 3: Normal expand (node is collapsed and has no hidden siblings)
+    // Priority 3: Normal expand (node is collapsed)
+    // This handles the "Closed -> Expand (Partial or Full)" step
     if (d._children) {
       d.children = d._children;
       d._children = null;
@@ -982,33 +846,35 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
       .html((d: any) => {
         const data = d.data;
         const childrenCount = this.getChildrenCount(d);
-        return `
-          <div class="card-content">
-            <div class="card-header">
-              ${data.avatar ? `<img src="${data.avatar}" class="avatar" alt="${data.name}" />` : '<div class="avatar-placeholder"></div>'}
-              <div class="card-info">
-                <div class="card-name">${data.name}</div>
-                <div class="card-title">${data.title}</div>
-              </div>
-            </div>
-            ${data.department ? `<div class="card-department"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg> ${data.department}</div>` : ''}
-            <div class="card-contact">
-              ${data.email ? `<div class="card-email"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg> ${data.email}</div>` : ''}
-              ${data.phone ? `<div class="card-phone"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg> ${data.phone}</div>` : ''}
-            </div>
-            ${childrenCount > 0 ? `<div class="card-badge">${childrenCount}</div>` : ''}
-          </div>
-        `;
+        return this.getCustomCardTemplate(data, childrenCount);
       });
   }
 
   // Public methods for toolbar actions
   public expandAll(): void {
     const expand = (d: any) => {
-      if (d._children) {
-        d.children = d._children;
+      // Store references before modifying
+      const currentChildren = d.children;
+      const currentHiddenChildren = d._children;
+      const hiddenSiblings = d._hiddenChildren;
+
+      // 1. If collapsed, expand visible children
+      if (currentHiddenChildren) {
+        d.children = currentHiddenChildren;
         d._children = null;
       }
+
+      // 2. If there are hidden siblings, reveal them
+      if (hiddenSiblings) {
+        d.children = (d.children || []).concat(hiddenSiblings);
+        d._hiddenChildren = null;
+
+        // Clear flags so toggleNode knows they are fully revealed
+        d.data._hiddenSiblings = null;
+        d.data._originalHiddenChildren = null;
+      }
+
+      // 3. Recurse into all children (now that they're all in d.children)
       if (d.children) {
         d.children.forEach(expand);
       }
@@ -1016,16 +882,22 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
 
     expand(this.root);
     this.update(this.root);
-    // Fit to screen will be called automatically after update transition
+    // Fit to screen after transition completes (handled in update method)
   }
 
   public collapseAll(): void {
-    this.root.descendants().forEach((d: any) => {
-      if (d.children && d.depth > 0) {
+    const collapse = (d: any) => {
+      if (d.children) {
         d._children = d.children;
         d.children = null;
       }
-    });
+      // Recurse into _children to ensure deep collapse even for currently hidden nodes
+      if (d._children) {
+        d._children.forEach(collapse);
+      }
+    };
+
+    collapse(this.root);
     this.update(this.root);
     // Fit to screen will be called automatically after update transition
   }
@@ -1110,23 +982,7 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
     this.createChart(); // Recreate chart with new card style
   }
 
-  // Adjust grid columns
-  public adjustGridColumns(delta: number): void {
-    this.gridColumns = Math.max(1, Math.min(10, this.gridColumns + delta));
-    this.createChart();
-  }
 
-  // Handle grid columns input change
-  public onGridColumnsChange(): void {
-    // Validate and clamp the value
-    this.gridColumns = Math.max(1, Math.min(10, this.gridColumns));
-    this.createChart();
-  }
-
-  // Handle grid layout toggle
-  public onGridLayoutToggle(): void {
-    this.createChart();
-  }
 
   // Adjust sibling gap in pixels
   public adjustSiblingGap(delta: number): void {
@@ -1199,5 +1055,26 @@ export class OrgChartComponent implements OnInit, AfterViewInit {
 
     this.update(this.root);
     this.closeAddNodeDialog();
+  }
+
+  // Generate custom card HTML template
+  private getCustomCardTemplate(data: OrgNode, childrenCount: number): string {
+    return `
+      <div class="card-content">
+        <div class="card-header">
+          ${data.avatar ? `<img src="${data.avatar}" class="avatar" alt="${data.name}" />` : '<div class="avatar-placeholder"></div>'}
+          <div class="card-info">
+            <div class="card-name">${data.name}</div>
+            <div class="card-title">${data.title}</div>
+          </div>
+        </div>
+        ${data.department ? `<div class="card-department"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg> ${data.department}</div>` : ''}
+        <div class="card-contact">
+          ${data.email ? `<div class="card-email"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg> ${data.email}</div>` : ''}
+          ${data.phone ? `<div class="card-phone"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg> ${data.phone}</div>` : ''}
+        </div>
+        ${childrenCount > 0 ? `<div class="card-badge">${childrenCount}</div>` : ''}
+      </div>
+    `;
   }
 }
